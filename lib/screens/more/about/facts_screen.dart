@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'package:ionicons/ionicons.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../../../data/about_content.dart';
 import '../../../theme/theme.dart';
@@ -29,7 +29,7 @@ class FactsScreen extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Icon(
-                      Ionicons.sparkles_outline,
+                      LucideIcons.sparkles,
                       size: 18,
                       color: colors.brand,
                     ),

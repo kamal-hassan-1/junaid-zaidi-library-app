@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'package:ionicons/ionicons.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../navigation/routes.dart';
 import '../theme/accents.dart';
@@ -34,7 +34,7 @@ final List<MoreMenuItem> moreMenu = [
   const MoreMenuItem(
     key: 'about',
     label: 'About',
-    icon: Ionicons.information_circle_outline,
+    icon: LucideIcons.info,
     routeName: MoreRoutes.about,
     section: MoreMenuSection.library,
     accent: AppAccent.brand,
@@ -42,7 +42,7 @@ final List<MoreMenuItem> moreMenu = [
   const MoreMenuItem(
     key: 'guides',
     label: 'Guides and Documentation',
-    icon: Ionicons.document_outline,
+    icon: LucideIcons.file,
     routeName: MoreRoutes.guides,
     section: MoreMenuSection.library,
     accent: AppAccent.success,
@@ -50,7 +50,7 @@ final List<MoreMenuItem> moreMenu = [
   const MoreMenuItem(
     key: 'map',
     label: 'Junaid Zaidi on Maps',
-    icon: Ionicons.map_outline,
+    icon: LucideIcons.map,
     routeName: MoreRoutes.map,
     section: MoreMenuSection.library,
     accent: AppAccent.warning,
@@ -58,7 +58,7 @@ final List<MoreMenuItem> moreMenu = [
   const MoreMenuItem(
     key: 'contact',
     label: 'Contact Us',
-    icon: Ionicons.call_outline,
+    icon: LucideIcons.phone,
     routeName: null,
     section: MoreMenuSection.community,
     accent: AppAccent.error,
@@ -66,7 +66,7 @@ final List<MoreMenuItem> moreMenu = [
   const MoreMenuItem(
     key: 'calendar',
     label: 'Event Calendar',
-    icon: Ionicons.calendar_outline,
+    icon: LucideIcons.calendar,
     routeName: null,
     section: MoreMenuSection.community,
     accent: AppAccent.success,
@@ -74,7 +74,7 @@ final List<MoreMenuItem> moreMenu = [
   const MoreMenuItem(
     key: 'gallery',
     label: 'Junaid Zaidi Gallery',
-    icon: Ionicons.images_outline,
+    icon: LucideIcons.images,
     routeName: null,
     section: MoreMenuSection.community,
     accent: AppAccent.warning,

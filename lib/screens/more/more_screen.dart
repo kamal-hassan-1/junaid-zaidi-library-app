@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ionicons/ionicons.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../../data/more_menu.dart';
 import '../../data/student_profile.dart';
@@ -93,7 +93,7 @@ class MoreScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Icon(Ionicons.chevron_forward, size: 18, color: colors.icon),
+                  Icon(LucideIcons.chevron_right, size: 18, color: colors.icon),
                 ],
               ),
             ),

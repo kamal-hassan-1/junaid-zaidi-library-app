@@ -1,11 +1,12 @@
-import 'package:flutter/widgets.dart';
-import 'package:ionicons/ionicons.dart';
+﻿import 'package:flutter/widgets.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../../data/student_profile.dart';
+import '../../navigation/auth_scope.dart';
 import '../../theme/theme.dart';
 import '../../widgets/ui.dart';
 
-/// Grouped list container — a card-like surface holding several [ListRow]s
+/// Grouped list container - a card-like surface holding several [ListRow]s
 /// stacked with dividers.
 Widget _groupedList(SemanticColors colors, List<Widget> rows) {
   final shadow = cardShadowDecoration(colors);
@@ -29,7 +30,6 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = useTheme(context);
-
     return ScreenContainer(
       scroll: true,
       child: Column(
@@ -54,19 +54,25 @@ class ProfileScreen extends StatelessWidget {
           ),
           _groupedList(colors, [
             ListRow(
-              icon: Ionicons.school_outline,
+              icon: LucideIcons.graduation_cap,
               label: 'Department',
               secondaryLabel: student.department,
               showChevron: false,
             ),
             ListRow(
-              icon: Ionicons.mail_outline,
+              icon: LucideIcons.mail,
               label: 'Email',
               secondaryLabel: student.email,
               showChevron: false,
               showDivider: false,
             ),
           ]),
+          const SizedBox(height: AppSpacing.xl),
+          AppButton(
+            label: 'Log Out',
+            variant: 'secondary',
+            onPressed: () => AuthScope.of(context).onLogout(),
+          ),
         ],
       ),
     );

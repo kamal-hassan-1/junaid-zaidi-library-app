@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'package:ionicons/ionicons.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../theme/theme.dart';
 import 'app_text.dart';
@@ -19,7 +19,7 @@ class EmptyState extends StatelessWidget {
 
   const EmptyState({
     super.key,
-    this.icon = Ionicons.construct_outline,
+    this.icon = LucideIcons.wrench,
     required this.title,
     this.description,
   });

@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'package:ionicons/ionicons.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../theme/accents.dart';
 
@@ -35,35 +35,35 @@ final List<HomeResource> homeResources = [
     key: 'opac',
     title: 'OPAC',
     subtitle: 'Catalog search',
-    icon: Ionicons.search_outline,
+    icon: LucideIcons.search,
     accent: AppAccent.brand,
   ),
   const HomeResource(
     key: 'hec-digital-library',
     title: 'HEC Digital Library',
     subtitle: 'Research access',
-    icon: Ionicons.globe_outline,
+    icon: LucideIcons.globe,
     accent: AppAccent.success,
   ),
   const HomeResource(
     key: 'hec-ebooks-library',
     title: 'HEC E-Books Library',
     subtitle: 'E-book access',
-    icon: Ionicons.book_outline,
+    icon: LucideIcons.book,
     accent: AppAccent.warning,
   ),
   const HomeResource(
     key: 'cui-thesis-catalog',
     title: 'CUI Thesis Catalog',
     subtitle: 'Theses & dissertations',
-    icon: Ionicons.document_text_outline,
+    icon: LucideIcons.file_text,
     accent: AppAccent.error,
   ),
   const HomeResource(
     key: 'explore-spaces',
     title: 'Explore Spaces',
     subtitle: 'Study rooms & floors',
-    icon: Ionicons.compass_outline,
+    icon: LucideIcons.compass,
     accent: AppAccent.brand,
     opensExploreSpaces: true,
   ),
@@ -71,7 +71,7 @@ final List<HomeResource> homeResources = [
     key: 'student-forms',
     title: 'Student Forms',
     subtitle: 'Requests & applications',
-    icon: Ionicons.clipboard_outline,
+    icon: LucideIcons.clipboard,
     accent: AppAccent.success,
   ),
 ];

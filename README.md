@@ -1,17 +1,100 @@
-# junaid_zaidi_library_app
+# Junaid Zaidi Library App
 
-A new Flutter project.
+A Flutter app for the Junaid Zaidi Library at COMSATS University Islamabad. Students can browse library resources and spaces, read guides and rules, find the library on a map, and register for / log into an account.
 
-## Getting Started
+This is a Flutter port of an original Expo Router (React Native) app; several comments in the codebase point back at the `.js` file each screen mirrors — intentional, worth keeping when you touch those files.
 
-This project is a starting point for a Flutter application.
+For a deep, screen-by-screen walkthrough of how sign-up and login actually work, see **[AUTHENTICATION.md](./AUTHENTICATION.md)** — this README covers the whole app; that file is the auth deep-dive.
 
-A few resources to get you started if this is your first Flutter project:
+## App structure
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Four bottom tabs, each mirroring an `app/(tabs)/*.js` route from the original:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+| Tab | Screen | Status |
+|---|---|---|
+| Home | `home_screen.dart` | Hero banner, search box, resource shortcut grid |
+| Library Resources | `library_resources_screen.dart` | Under construction (empty state) |
+| Explore Spaces | `explore_spaces_screen.dart` | Under construction (empty state) |
+| More | `more/more_screen.dart` | Menu → Profile, Guides, Map, About (+ Facts/Rules/Staff/Floor Plan sub-pages) |
+
+Navigation is `IndexedStack` + `BottomNavigationBar` in `root_shell.dart`, so switching tabs preserves each tab's state. The **More** tab owns its own nested `Navigator` (`app_tab_scope.dart` + `MoreRoutes`) for its internal stack, with `PopScope` wired so Android's back button pops that inner stack before the outer app.
+
+Three "More" menu items — Contact Us, Event Calendar, Junaid Zaidi Gallery — are intentionally inert (`routeName: null` in `more_menu.dart`) and show a "Coming soon" badge. By design, not a bug.
+
+The Map screen renders OpenStreetMap through `services/osm_map_html.dart` — an HTML string fed into `webview_flutter`, not a native map SDK.
+
+**Profile screen** has a Log Out button, wired through `AuthScope` (see AUTHENTICATION.md → "Logging out").
+
+## Design system
+
+- `theme/tokens/` — spacing (`AppSpacing`), radius (`AppRadius`), typography (`AppTypography`), color primitives (`colors.dart`, includes `AppPalette` gradient scale)
+- `theme/semantic/` — light/dark semantic color maps, accessed via `useTheme(context)`
+- `theme/theme_provider.dart` — `AppThemeProvider`, wraps the app in `main.dart`
+- `widgets/ui.dart` — shared component barrel (`AppText`, `AppButton`, `AppTextField`, `Heading`, `AppCard`, `ScreenContainer`, `EmptyState`, `ListRow`, `SearchInput`, `Badge`, `Avatar`, etc.)
+
+Brand color `#1D4ED8`. Font is Inter — real `.ttf` files bundled under a custom `Inter` family in `pubspec.yaml`'s `fonts:` block; `typography.dart` sets `fontFamily: 'Inter'` directly on each `TextStyle` (an earlier version called `GoogleFonts.inter(...)`, which looked for fonts via the `google_fonts` package's own manifest instead of the bundled family — fixed).
+
+Icons are **Lucide** (`flutter_lucide` package), not the original `ionicons`. `ionicons` (last published 2023) defines `IoniconsData extends IconData`, which stopped compiling once Flutter marked `IconData` `final` — an unmaintained package hitting a framework breaking change with no fix coming. Lucide has the same clean outline aesthetic and is actively maintained.
+
+If adding a new screen, start from `widgets/ui.dart` and `theme/theme.dart` before reaching for a raw `Container`/`Text`.
+
+## Project setup (fresh clone)
+
+```powershell
+git clone https://github.com/MuaazTasawar/junaid-zaidi-library-app.git
+cd junaid-zaidi-library-app
+flutter pub get
+```
+
+You'll also need:
+- `android/app/google-services.json` — committed to this repo (environment config, not a secret; real access control is `firestore.rules`).
+- A Firebase project with Email/Password sign-in enabled and Firestore rules deployed — already done for `comsats-library-app` (Firestore region: **asia-south2**, Delhi — not asia-south1/Mumbai as originally planned; doesn't affect functionality, just keep using asia-south2 for any future Firestore feature since a project only gets one default-database region).
+- Your Koha instance's base URL in `lib/config/api_constants.dart` (`ApiConstants.kohaBaseUrl`) — **or the mock server**, if you don't have a real Koha URL yet. See AUTHENTICATION.md → "Testing without a real Koha server."
+
+```powershell
+flutter run
+```
+
+## Repo layout
+
+```
+lib/
+├── main.dart                        App entry, Firebase init, theme setup
+├── firebase_options.dart            Generated by flutterfire CLI — android + web only
+├── config/
+│   └── api_constants.dart           Koha base URL <- REPLACE THIS, Firestore collection name
+├── models/
+│   └── student_request.dart         student_requests document shape
+├── services/
+│   ├── firebase_auth_service.dart   Email verification only
+│   ├── firestore_service.dart       student_requests CRUD
+│   ├── koha_auth_service.dart       Real login, token exchange <- response field names may need adjusting
+│   ├── secure_storage_service.dart  Koha token storage
+│   └── osm_map_html.dart            HTML fed into the Map tab's webview
+├── data/                            Static content (home resources, more-menu items, about facts)
+├── navigation/
+│   ├── routes.dart                  MoreRoutes + AuthRoutes route-name constants
+│   ├── app_tab_scope.dart           InheritedWidget for switching bottom tabs from anywhere
+│   └── auth_scope.dart              InheritedWidget exposing logout() to the whole RootShell subtree
+├── theme/                           Design tokens + semantic color maps
+├── widgets/                         Shared UI primitives
+└── screens/
+    ├── root_shell.dart              Bottom tab bar + IndexedStack + More-tab nested Navigator
+    ├── home_screen.dart / library_resources_screen.dart / explore_spaces_screen.dart
+    ├── more/                        Profile (has Log Out), Guides, Map, About (+ sub-pages)
+    └── auth/                        AuthGate, Welcome, Login, Signup (email -> verify -> form)
+```
+
+## Known follow-ups
+
+- **Koha response field names**: `koha_auth_service.dart` assumes `access_token`/`token` and `patron_id`/`borrowernumber`. Confirm against a real login response once you have the real Koha URL and adjust if needed.
+- **No admin approval UI**: approving/rejecting a `student_requests` document is a manual Firebase Console action. See AUTHENTICATION.md for the full manual workflow this implies.
+- **iOS**: not targeted — only `android/` and `web/` platform folders exist. Adding iOS later: `flutter create --platforms=ios .`, then `flutterfire configure`, with a proper reverse-DNS bundle ID.
+- **Library Resources / Explore Spaces tabs**: still placeholder empty states, unrelated to auth.
+- **Firestore document `status` field**: only ever set by hand right now (no in-app admin tool), so it's easy to accidentally type a value the code doesn't recognize (e.g. `"Verified"`). The app only ever checks for exactly `Pending`, `Approved`, or `Rejected` (`StudentRequestStatus` in `models/student_request.dart`) — any other string will silently fail to match any of them once a status-check screen exists. Stick to those three exact values, capitalization included.
+
+## Learn more
+
+- [Flutter docs](https://docs.flutter.dev/)
+- [FlutterFire docs](https://firebase.google.com/docs/flutter/setup)
+- [Koha REST API docs](https://api.koha-community.org/)

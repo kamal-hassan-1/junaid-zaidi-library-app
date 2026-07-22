@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'package:ionicons/ionicons.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../data/library_images.dart';
 import '../widgets/ui.dart';
@@ -15,7 +15,7 @@ class ExploreSpacesScreen extends StatelessWidget {
       backgroundImage: AssetImage(homeBackgroundImagePath),
       backgroundImageOpacity: 0.2,
       child: EmptyState(
-        icon: Ionicons.compass_outline,
+        icon: LucideIcons.compass,
         title: 'Explore Spaces',
         description:
             'This section is under construction. Study rooms and floor spaces will appear here soon.',

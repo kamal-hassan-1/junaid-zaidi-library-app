@@ -1,5 +1,4 @@
-import 'package:flutter/widgets.dart';
-import 'package:google_fonts/google_fonts.dart';
+﻿import 'package:flutter/widgets.dart';
 
 /// Font family: GT America Trial (originally specified) is an unlicensed
 /// trial font. Substituted with Inter, matching the original Expo build's
@@ -19,7 +18,8 @@ class AppTypeSpec {
   });
 
   TextStyle toTextStyle({Color? color}) {
-    return GoogleFonts.inter(
+    return TextStyle(
+      fontFamily: 'Inter',
       fontSize: fontSize,
       height: lineHeight / fontSize,
       fontWeight: fontWeight,
