@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ionicons/ionicons.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../navigation/app_tab_scope.dart';
 import '../navigation/routes.dart';
@@ -129,19 +129,19 @@ class _RootShellState extends State<RootShell> {
                 unselectedLabelStyle: AppTypography.caption.toTextStyle(),
                 items: [
                   BottomNavigationBarItem(
-                    icon: Icon(_index == AppTabs.home ? Ionicons.home : Ionicons.home_outline),
+                    icon: Icon(LucideIcons.house),
                     label: 'Home',
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(_index == AppTabs.libraryResources ? Ionicons.library : Ionicons.library_outline),
+                    icon: Icon(LucideIcons.library),
                     label: 'Library Resources',
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(_index == AppTabs.exploreSpaces ? Ionicons.compass : Ionicons.compass_outline),
+                    icon: Icon(LucideIcons.compass),
                     label: 'Explore Spaces',
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(_index == AppTabs.more ? Ionicons.menu : Ionicons.menu_outline),
+                    icon: Icon(LucideIcons.menu),
                     label: 'More',
                   ),
                 ],

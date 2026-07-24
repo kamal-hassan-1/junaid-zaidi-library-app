@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /admins/{adminId} {
+      allow read: if request.auth != null && request.auth.uid == adminId;
+      allow write: if false;
+    }
+
+    match /student_requests/{requestId} {
+      allow create: if request.auth != null
+                    && request.auth.token.email_verified == true
+                    && request.resource.data.email == request.auth.token.email
+                    && request.resource.data.status == 'Pending';
+
+      allow read: if request.auth != null
+                  && (resource.data.email == request.auth.token.email
+                      || exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+
+      allow update: if request.auth != null
+                    && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+
+      allow delete: if false;
+    }
+
+    match /users/{userId} {
+      allow read: if request.auth != null
+                  && request.auth.uid == userId;
+
+      allow create: if request.auth != null
+                    && request.auth.uid == userId
+                    && request.auth.token.email.matches('.*@isbstudent[.]comsats[.]edu[.]pk$');
+
+      allow update: if request.auth != null
+                    && request.auth.uid == userId;
+
+      allow delete: if false;
+    }
+  }
+}

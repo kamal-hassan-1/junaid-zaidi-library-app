@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'package:ionicons/ionicons.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../navigation/routes.dart';
 
@@ -40,25 +40,25 @@ final List<AboutLink> aboutLinks = [
   const AboutLink(
     key: 'facts',
     label: 'Facts about Junaid Zaidi Library',
-    icon: Ionicons.sparkles_outline,
+    icon: LucideIcons.sparkles,
     routeName: MoreRoutes.aboutFacts,
   ),
   const AboutLink(
     key: 'rules',
     label: 'Rules and Regulations',
-    icon: Ionicons.shield_checkmark_outline,
+    icon: LucideIcons.shield_check,
     routeName: MoreRoutes.aboutRules,
   ),
   const AboutLink(
     key: 'staff',
     label: 'Staff Info',
-    icon: Ionicons.people_outline,
+    icon: LucideIcons.users,
     routeName: MoreRoutes.aboutStaff,
   ),
   const AboutLink(
     key: 'floor-plan',
     label: 'Floor Plan',
-    icon: Ionicons.layers_outline,
+    icon: LucideIcons.layers,
     routeName: MoreRoutes.aboutFloorPlan,
   ),
 ];

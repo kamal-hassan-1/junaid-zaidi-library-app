@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'package:ionicons/ionicons.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../theme/theme.dart';
 import 'app_text.dart';
@@ -91,7 +91,7 @@ class ListRow extends StatelessWidget {
           ],
           if (onTap != null && showChevron) ...[
             const SizedBox(width: AppSpacing.ms),
-            Icon(Ionicons.chevron_forward, size: 18, color: colors.icon),
+            Icon(LucideIcons.chevron_right, size: 18, color: colors.icon),
           ],
         ],
       ),

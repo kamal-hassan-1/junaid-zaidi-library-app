@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Junaid Zaidi Library - Admin</title>
+<style>
+  :root {
+    --brand: #1D4ED8;
+    --brand-dark: #1E40AF;
+    --bg: #F8FAFC;
+    --surface: #FFFFFF;
+    --border: #E2E8F0;
+    --text: #0F172A;
+    --text-secondary: #64748B;
+    --success-bg: #DCFCE7;
+    --success-fg: #166534;
+    --error-bg: #FEE2E2;
+    --error-fg: #991B1B;
+    --pending-bg: #FEF9C3;
+    --pending-fg: #854D0E;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  #login-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .login-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 40px 32px;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+  }
+  .login-mark {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    background: var(--brand);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 20px;
+    margin: 0 auto 20px;
+  }
+  .login-card h1 { font-size: 20px; text-align: center; margin: 0 0 4px; }
+  .login-card p.sub { text-align: center; color: var(--text-secondary); font-size: 14px; margin: 0 0 24px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary); }
+  input[type="email"], input[type="password"] {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 15px;
+    margin-bottom: 16px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input[type="email"]:focus, input[type="password"]:focus { border-color: var(--brand); }
+  button {
+    cursor: pointer;
+    border: none;
+    font-weight: 600;
+    font-size: 15px;
+    border-radius: 10px;
+    transition: opacity 0.15s;
+  }
+  button:hover { opacity: 0.9; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary { width: 100%; padding: 12px; background: var(--brand); color: white; }
+  #login-error { color: var(--error-fg); font-size: 13px; margin-top: 12px; text-align: center; min-height: 18px; }
+  #dashboard-screen { display: none; }
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header-mark {
+    width: 36px; height: 36px; border-radius: 9px; background: var(--brand);
+    color: white; display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 13px;
+  }
+  header h2 { font-size: 16px; margin: 0; }
+  header p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+  #logout-btn { padding: 8px 16px; background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+  .tab {
+    padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 600;
+    background: transparent; color: var(--text-secondary); border: none;
+  }
+  .tab.active { background: var(--surface); color: var(--brand); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .card-list { display: flex; flex-direction: column; gap: 12px; }
+  .request-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 24px;
+  }
+  .request-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+  .request-name { font-size: 17px; font-weight: 700; margin: 0 0 2px; }
+  .request-regnum { font-size: 13px; color: var(--text-secondary); }
+  .badge { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .badge.pending { background: var(--pending-bg); color: var(--pending-fg); }
+  .badge.approved { background: var(--success-bg); color: var(--success-fg); }
+  .badge.rejected { background: var(--error-bg); color: var(--error-fg); }
+  .detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px 24px;
+    margin: 16px 0;
+  }
+  .detail-item .detail-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-secondary); margin-bottom: 2px; }
+  .detail-item .detail-value { font-size: 14px; }
+  .request-actions { display: flex; gap: 10px; margin-top: 4px; }
+  .btn-approve { padding: 9px 18px; background: var(--success-fg); color: white; }
+  .btn-reject { padding: 9px 18px; background: var(--surface); color: var(--error-fg); border: 1px solid var(--error-fg); }
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
+  #access-denied { display: none; text-align: center; padding: 80px 24px; }
+  #access-denied h2 { margin-bottom: 8px; }
+  #access-denied p { color: var(--text-secondary); }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-mark">JZ</div>
+    <h1>Library Admin</h1>
+    <p class="sub">Junaid Zaidi Library - staff access only</p>
+    <form id="login-form">
+      <label for="email">Email</label>
+      <input type="email" id="email" required autocomplete="username">
+      <label for="password">Password</label>
+      <input type="password" id="password" required autocomplete="current-password">
+      <button type="submit" class="btn-primary" id="login-submit">Log in</button>
+      <div id="login-error"></div>
+    </form>
+  </div>
+</div>
+
+<div id="access-denied">
+  <h2>Not an admin account</h2>
+  <p>This Firebase account isn't on the admin allowlist. Ask whoever manages the project to add your UID to the <code>admins</code> collection in Firestore.</p>
+  <button id="access-denied-logout" class="btn-primary" style="max-width:200px;margin:16px auto 0;">Log out</button>
+</div>
+
+<div id="dashboard-screen">
+  <header>
+    <div class="header-left">
+      <div class="header-mark">JZ</div>
+      <div>
+        <h2>Registration Requests</h2>
+        <p id="admin-email"></p>
+      </div>
+    </div>
+    <button id="logout-btn">Log out</button>
+  </header>
+
+  <main>
+    <div class="tabs">
+      <button class="tab active" data-filter="Pending">Pending</button>
+      <button class="tab" data-filter="Approved">Approved</button>
+      <button class="tab" data-filter="Rejected">Rejected</button>
+      <button class="tab" data-filter="all">All</button>
+    </div>
+    <div id="request-list" class="card-list"></div>
+    <div id="empty-state" class="empty-state" style="display:none;">
+      <div>No requests here right now.</div>
+    </div>
+  </main>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyA7MKg6Y-vd7-9Vf5MR2sSgRAbSlnnTLqI",
+    authDomain: "comsats-library-app.firebaseapp.com",
+    projectId: "comsats-library-app",
+    storageBucket: "comsats-library-app.firebasestorage.app",
+    messagingSenderId: "636690735144",
+    appId: "1:636690735144:web:64509d2f81576b2491551d",
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  const loginScreen = document.getElementById('login-screen');
+  const dashboardScreen = document.getElementById('dashboard-screen');
+  const accessDenied = document.getElementById('access-denied');
+  const loginForm = document.getElementById('login-form');
+  const loginError = document.getElementById('login-error');
+  const loginSubmit = document.getElementById('login-submit');
+  const requestList = document.getElementById('request-list');
+  const emptyState = document.getElementById('empty-state');
+  const adminEmailLabel = document.getElementById('admin-email');
+
+  let currentFilter = 'Pending';
+  let unsubscribeRequests = null;
+
+  function showScreen(name) {
+    loginScreen.style.display = name === 'login' ? 'flex' : 'none';
+    accessDenied.style.display = name === 'denied' ? 'block' : 'none';
+    dashboardScreen.style.display = name === 'dashboard' ? 'block' : 'none';
+  }
+
+  auth.onAuthStateChanged(async (user) => {
+    if (!user) {
+      showScreen('login');
+      if (unsubscribeRequests) { unsubscribeRequests(); unsubscribeRequests = null; }
+      return;
+    }
+    try {
+      const adminDoc = await db.collection('admins').doc(user.uid).get();
+      if (!adminDoc.exists) {
+        showScreen('denied');
+        return;
+      }
+    } catch (e) {
+      showScreen('denied');
+      return;
+    }
+    adminEmailLabel.textContent = user.email;
+    showScreen('dashboard');
+    subscribeToRequests();
+  });
+
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    loginError.textContent = '';
+    loginSubmit.disabled = true;
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    try {
+      await auth.signInWithEmailAndPassword(email, password);
+    } catch (err) {
+      loginError.textContent = 'Incorrect email or password.';
+    } finally {
+      loginSubmit.disabled = false;
+    }
+  });
+
+  document.getElementById('logout-btn').addEventListener('click', () => auth.signOut());
+  document.getElementById('access-denied-logout').addEventListener('click', () => auth.signOut());
+
+  document.querySelectorAll('.tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentFilter = tab.dataset.filter;
+      subscribeToRequests();
+    });
+  });
+
+  function subscribeToRequests() {
+    if (unsubscribeRequests) unsubscribeRequests();
+    let query = db.collection('student_requests').orderBy('createdAt', 'desc');
+    if (currentFilter !== 'all') {
+      query = db.collection('student_requests')
+        .where('status', '==', currentFilter)
+        .orderBy('createdAt', 'desc');
+    }
+    unsubscribeRequests = query.onSnapshot(
+      (snapshot) => renderRequests(snapshot.docs),
+      (err) => {
+        requestList.innerHTML = `<div class="empty-state">Could not load requests: ${err.message}</div>`;
+      }
+    );
+  }
+
+  function renderRequests(docs) {
+    if (docs.length === 0) {
+      requestList.innerHTML = '';
+      emptyState.style.display = 'block';
+      return;
+    }
+    emptyState.style.display = 'none';
+    requestList.innerHTML = docs.map((doc) => {
+      const data = doc.data();
+      const status = data.status || 'Pending';
+      const badgeClass = status.toLowerCase();
+      const created = data.createdAt ? data.createdAt.toDate().toLocaleString() : '-';
+      const actions = status === 'Pending'
+        ? `<div class="request-actions">
+             <button class="btn-approve" onclick="updateStatus('${doc.id}', 'Approved')">Approve</button>
+             <button class="btn-reject" onclick="updateStatus('${doc.id}', 'Rejected')">Reject</button>
+           </div>`
+        : '';
+      return `
+        <div class="request-card">
+          <div class="request-top">
+            <div>
+              <p class="request-name">${escapeHtml(data.fullName || '-')}</p>
+              <p class="request-regnum">${escapeHtml(data.registrationNumber || '-')}</p>
+            </div>
+            <span class="badge ${badgeClass}">${escapeHtml(status)}</span>
+          </div>
+          <div class="detail-grid">
+            <div class="detail-item"><div class="detail-label">Department</div><div class="detail-value">${escapeHtml(data.department || '-')}</div></div>
+            <div class="detail-item"><div class="detail-label">Email</div><div class="detail-value">${escapeHtml(data.email || '-')}</div></div>
+            <div class="detail-item"><div class="detail-label">Phone</div><div class="detail-value">${escapeHtml(data.phone || '-')}</div></div>
+            <div class="detail-item"><div class="detail-label">CNIC</div><div class="detail-value">${escapeHtml(data.cnic || '-')}</div></div>
+            <div class="detail-item"><div class="detail-label">Submitted</div><div class="detail-value">${created}</div></div>
+          </div>
+          ${actions}
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function updateStatus(requestId, newStatus) {
+    try {
+      await db.collection('student_requests').doc(requestId).update({ status: newStatus });
+    } catch (err) {
+      alert('Could not update status: ' + err.message);
+    }
+  }
+  window.updateStatus = updateStatus;
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+</script>
+</body>
+</html>

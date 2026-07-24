@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'package:ionicons/ionicons.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../../theme/theme.dart';
 import '../../widgets/ui.dart';
@@ -29,10 +29,10 @@ class _Guide {
 /// Static placeholder list — guide content/documents to be linked in later.
 /// Kept local to this screen (not in /data), matching the original.
 const List<_Guide> _guides = [
-  _Guide('How to Use OPAC', Ionicons.search_outline),
-  _Guide('Borrowing Policy Guide', Ionicons.book_outline),
-  _Guide('Thesis Submission Guide', Ionicons.document_text_outline),
-  _Guide('Digital Library Access Guide', Ionicons.globe_outline),
+  _Guide('How to Use OPAC', LucideIcons.search),
+  _Guide('Borrowing Policy Guide', LucideIcons.book),
+  _Guide('Thesis Submission Guide', LucideIcons.file_text),
+  _Guide('Digital Library Access Guide', LucideIcons.globe),
 ];
 
 /// Guides and Documentation screen. Mirrors app/(tabs)/more/guides.js.

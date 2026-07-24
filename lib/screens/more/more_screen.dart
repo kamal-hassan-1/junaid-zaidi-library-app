@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:ionicons/ionicons.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../../data/more_menu.dart';
-import '../../data/student_profile.dart';
+import '../../models/profile_data.dart';
+import '../../navigation/auth_scope.dart';
 import '../../navigation/routes.dart';
+import '../../services/profile_loader.dart';
 import '../../theme/theme.dart';
 import '../../widgets/ui.dart';
 
-/// Grouped list container — a card-like surface holding several [ListRow]s
-/// stacked with dividers. (Profile and Guides screens define their own
-/// private copy of this same helper rather than importing it from here.)
 Widget groupedList(SemanticColors colors, List<Widget> rows) {
   final shadow = cardShadowDecoration(colors);
   return Container(
@@ -48,14 +47,39 @@ Widget _buildSectionList(BuildContext context, SemanticColors colors, MoreMenuSe
   ]);
 }
 
-/// More tab index: profile hero + grouped menu sections. Mirrors
-/// app/(tabs)/more/index.js.
-class MoreScreen extends StatelessWidget {
+class MoreScreen extends StatefulWidget {
   const MoreScreen({super.key});
+
+  @override
+  State<MoreScreen> createState() => _MoreScreenState();
+}
+
+class _MoreScreenState extends State<MoreScreen> {
+  final _profileLoader = ProfileLoader();
+
+  ProfileData? _profile;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final profile = await _profileLoader.load();
+    if (mounted) {
+      setState(() {
+        _profile = profile;
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = useTheme(context);
+    final isGuest = AuthScope.of(context).isGuest;
 
     return ScreenContainer(
       scroll: true,
@@ -74,28 +98,7 @@ class MoreScreen extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: AppSpacing.lg),
             child: AppCard(
               onTap: () => Navigator.of(context).pushNamed(MoreRoutes.profile),
-              child: Row(
-                children: [
-                  AppAvatar(name: student.name),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        AppText(student.name, variant: 'bodyBase'),
-                        const SizedBox(height: AppSpacing.xs),
-                        AppText(
-                          student.registrationNumber,
-                          variant: 'bodySmall',
-                          tone: 'secondary',
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(Ionicons.chevron_forward, size: 18, color: colors.icon),
-                ],
-              ),
+              child: _buildHeroRow(colors, isGuest),
             ),
           ),
           for (final section in [MoreMenuSection.library, MoreMenuSection.community])
@@ -116,17 +119,77 @@ class MoreScreen extends StatelessWidget {
                 ],
               ),
             ),
-          // The original reads the live app version via expo-constants
-          // (`Constants.expoConfig?.version`); this port hardcodes the
-          // version string as an intentional, documented simplification.
           const AppText(
-            'Junaid Zaidi Library · v1.0.0',
+            'Junaid Zaidi Library - v1.0.0',
             variant: 'caption',
             tone: 'tertiary',
             textAlign: TextAlign.center,
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildHeroRow(SemanticColors colors, bool isGuest) {
+    if (isGuest) {
+      return Row(
+        children: [
+          Icon(LucideIcons.user, size: 36, color: colors.icon),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppText('Browsing as guest', variant: 'bodyBase'),
+                const SizedBox(height: AppSpacing.xs),
+                AppText('Tap to sign in', variant: 'bodySmall', tone: 'secondary'),
+              ],
+            ),
+          ),
+          Icon(LucideIcons.chevron_right, size: 18, color: colors.icon),
+        ],
+      );
+    }
+
+    if (_isLoading && _profile == null) {
+      return Row(
+        children: [
+          SizedBox(
+            width: 36,
+            height: 36,
+            child: CircularProgressIndicator(strokeWidth: 2, color: colors.brand),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          AppText('Loading profile...', variant: 'bodyBase', tone: 'secondary'),
+        ],
+      );
+    }
+
+    final profile = _profile ??
+        const ProfileData(fullName: 'Profile unavailable', registrationNumber: '', isLimited: true);
+
+    return Row(
+      children: [
+        AppAvatar(name: profile.fullName),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppText(profile.fullName, variant: 'bodyBase'),
+              const SizedBox(height: AppSpacing.xs),
+              AppText(
+                profile.registrationNumber,
+                variant: 'bodySmall',
+                tone: 'secondary',
+              ),
+            ],
+          ),
+        ),
+        Icon(LucideIcons.chevron_right, size: 18, color: colors.icon),
+      ],
     );
   }
 }

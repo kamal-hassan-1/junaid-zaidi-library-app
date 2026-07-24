@@ -43,3 +43,15 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Firebase — project-specific, don't commit
+.firebaserc
+**/google-services.json
+**/GoogleService-Info.plist
+
+# Environment / secrets
+.env
+.env.*
+*.pem
+*.key
+service-account*.json
