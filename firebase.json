@@ -1,0 +1,28 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "comsats-library-app",
+          "appId": "1:636690735144:android:2a025820f3c5c72391551d",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "comsats-library-app",
+          "configurations": {
+            "android": "1:636690735144:android:2a025820f3c5c72391551d",
+            "web": "1:636690735144:web:64509d2f81576b2491551d"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "database": "(default)",
+    "location": "asia-south2",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  }
+}

@@ -41,7 +41,12 @@ dependencies:
   webview_flutter: ^4.10.0
   # Hands off to the native Google Maps app/browser (matches Linking.openURL)
   url_launcher: ^6.3.1
-  ionicons: ^0.2.2
+  firebase_core: ^4.12.1
+  firebase_auth: ^6.5.6
+  cloud_firestore: ^6.7.1
+  flutter_secure_storage: ^10.3.1
+  http: ^1.6.0
+  flutter_lucide: ^1.11.0
 
 dev_dependencies:
   flutter_test:

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ionicons/ionicons.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../theme/theme.dart';
 
@@ -83,7 +83,7 @@ class _SearchInputState extends State<SearchInput> {
       ),
       child: Row(
         children: [
-          Icon(Ionicons.search, size: 18, color: colors.icon),
+          Icon(LucideIcons.search, size: 18, color: colors.icon),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: TextField(
@@ -115,7 +115,7 @@ class _SearchInputState extends State<SearchInput> {
               child: Semantics(
                 label: 'Clear search',
                 button: true,
-                child: Icon(Ionicons.close_circle, size: 18, color: colors.icon),
+                child: Icon(LucideIcons.circle_x, size: 18, color: colors.icon),
               ),
             ),
           ],

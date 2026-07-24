@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'package:ionicons/ionicons.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../data/library_images.dart';
 import '../widgets/ui.dart';
@@ -15,7 +15,7 @@ class LibraryResourcesScreen extends StatelessWidget {
       backgroundImage: AssetImage(homeBackgroundImagePath),
       backgroundImageOpacity: 0.2,
       child: EmptyState(
-        icon: Ionicons.library_outline,
+        icon: LucideIcons.library,
         title: 'Library Resources',
         description:
             'This section is under construction. Resource listings will appear here soon.',
