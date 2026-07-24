@@ -1,4 +1,4 @@
-﻿import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 
@@ -45,7 +45,7 @@ class _SignupEmailScreenState extends State<SignupEmailScreen> {
     });
 
     var isValid = true;
-    final email = _emailController.text.trim();
+    final email = _emailController.text.trim().toLowerCase();
     final password = _passwordController.text;
 
     if (email.isEmpty || !_emailPattern.hasMatch(email)) {
@@ -68,7 +68,7 @@ class _SignupEmailScreenState extends State<SignupEmailScreen> {
     setState(() => _isSubmitting = true);
     try {
       await _authService.createTempAccount(
-        email: _emailController.text.trim(),
+        email: _emailController.text.trim().toLowerCase(),
         password: _passwordController.text,
       );
       await _authService.sendVerificationEmail();
@@ -76,7 +76,7 @@ class _SignupEmailScreenState extends State<SignupEmailScreen> {
       if (!mounted) return;
       Navigator.of(context).pushNamed(
         AuthRoutes.verifyEmail,
-        arguments: _emailController.text.trim(),
+        arguments: _emailController.text.trim().toLowerCase(),
       );
     } on FirebaseAuthException catch (e) {
       setState(() {

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 
@@ -91,7 +91,7 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
     if (!_validate()) return;
 
     final user = _authService.currentUser;
-    final email = user?.email;
+    final email = user?.email?.trim().toLowerCase();
     if (email == null || !_authService.isEmailVerified) {
       setState(() => _formError =
           'Your email session expired — go back and verify your email again.');
