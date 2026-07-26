@@ -2,7 +2,8 @@
 import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../../navigation/routes.dart';
-import '../../services/koha_auth_service.dart';
+import '../../repositories/repository_scope.dart';
+import '../../repositories/session_repository.dart';
 import '../../theme/theme.dart';
 import '../../widgets/ui.dart';
 
@@ -21,10 +22,17 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _kohaAuth = KohaAuthService();
+
+  late final SessionRepository _session;
 
   String? _formError;
   bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _session = RepositoryScope.of(context).session;
+  }
 
   @override
   void dispose() {
@@ -46,10 +54,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      await _kohaAuth.login(username: username, password: password);
+      await _session.establishWithPassword(
+        username: username,
+        password: password,
+      );
       if (!mounted) return;
       widget.onLoginSuccess();
-    } on KohaAuthException catch (e) {
+    } on SessionException catch (e) {
       setState(() => _formError = e.message);
     } catch (_) {
       setState(() => _formError = 'Something went wrong. Please try again.');

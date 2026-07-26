@@ -10,7 +10,7 @@ import '../theme/accents.dart';
 /// and are rendered with a "Coming soon" badge instead of navigation.
 /// `accent` names a semantic color used to tint each item's icon chip,
 /// purely for visual categorization — not a status signal.
-enum MoreMenuSection { library, community }
+enum MoreMenuSection { account, library, community }
 
 class MoreMenuItem {
   final String key;
@@ -20,6 +20,11 @@ class MoreMenuItem {
   final MoreMenuSection section;
   final AppAccent accent;
 
+  /// Whether a guest has to sign in first. MoreScreen shows the same prompt the
+  /// Home screen's OPAC card does, instead of navigating to a screen whose data
+  /// a guest is not entitled to.
+  final bool requiresAuth;
+
   const MoreMenuItem({
     required this.key,
     required this.label,
@@ -27,10 +32,29 @@ class MoreMenuItem {
     this.routeName,
     required this.section,
     required this.accent,
+    this.requiresAuth = false,
   });
 }
 
 final List<MoreMenuItem> moreMenu = [
+  const MoreMenuItem(
+    key: 'my-loans',
+    label: 'My Loans',
+    icon: LucideIcons.book_open,
+    routeName: MoreRoutes.myLoans,
+    section: MoreMenuSection.account,
+    accent: AppAccent.brand,
+    requiresAuth: true,
+  ),
+  const MoreMenuItem(
+    key: 'my-holds',
+    label: 'My Holds',
+    icon: LucideIcons.bookmark,
+    routeName: MoreRoutes.myHolds,
+    section: MoreMenuSection.account,
+    accent: AppAccent.success,
+    requiresAuth: true,
+  ),
   const MoreMenuItem(
     key: 'about',
     label: 'About',

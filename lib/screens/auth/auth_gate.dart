@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../navigation/auth_scope.dart';
 import '../../navigation/routes.dart';
+import '../../repositories/repository_scope.dart';
+import '../../repositories/session_repository.dart';
 import '../../services/firebase_auth_service.dart';
 import '../../services/firestore_service.dart';
-import '../../services/koha_auth_service.dart';
 import '../../services/secure_storage_service.dart';
 import '../../theme/semantic/light.dart';
 import '../../theme/theme.dart';
@@ -38,7 +39,10 @@ class AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGate> {
-  final _kohaAuth = KohaAuthService();
+  /// Resolved in initState because it needs a BuildContext. Safe there because
+  /// RepositoryScope.of does not register a dependency.
+  late final SessionRepository _session;
+
   final _firebaseAuth = FirebaseAuthService();
   final _firestoreService = FirestoreService();
   final _secureStorage = SecureStorageService();
@@ -53,11 +57,12 @@ class _AuthGateState extends State<AuthGate> {
   @override
   void initState() {
     super.initState();
+    _session = RepositoryScope.of(context).session;
     _checkSession();
   }
 
   Future<void> _checkSession() async {
-    final hasKohaSession = await _kohaAuth.isLoggedIn();
+    final hasKohaSession = await _session.hasSession();
     final hasFirebaseSession = await _firebaseAuth.hasApprovedRequestSession(_firestoreService);
     if (hasKohaSession || hasFirebaseSession) {
       if (mounted) setState(() => _state = _AuthState.authenticated);
@@ -105,7 +110,7 @@ class _AuthGateState extends State<AuthGate> {
   /// guest flag) is harmless for whichever ones weren't actually active,
   /// and correctly returns either a real user or a guest to Welcome.
   Future<void> _handleLogout() async {
-    await _kohaAuth.logout();
+    await _session.clear();
     await _firebaseAuth.signOut();
     await _secureStorage.setGuestMode(false);
     if (mounted) {

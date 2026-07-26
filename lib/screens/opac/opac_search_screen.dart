@@ -44,6 +44,10 @@ class _OpacSearchScreenState extends State<OpacSearchScreen> {
 
   List<String> _recentSearches = const [];
   List<CatalogItem> _featured = const [];
+
+  /// False only once the landing data is actually in hand. It deliberately
+  /// stays true after a failed load, which is what lets [_resetToLanding]
+  /// re-request rather than reveal an empty shelf.
   bool _isLoadingLanding = true;
 
   @override
@@ -55,15 +59,29 @@ class _OpacSearchScreenState extends State<OpacSearchScreen> {
     _loadLanding();
   }
 
+  /// Loads the landing shelf, and doubles as its retry action.
+  ///
+  /// featured() is a repository call like any other, so it can fail once the
+  /// REST implementation is live — a mock that never throws is why this went
+  /// unguarded for so long.
   Future<void> _loadLanding() async {
-    final recent = await _searchHistory.recent();
-    final featured = await _catalog.featured();
-    if (!mounted) return;
     setState(() {
-      _recentSearches = recent;
-      _featured = featured;
-      _isLoadingLanding = false;
+      _isLoadingLanding = true;
+      _view = _OpacView.landing;
     });
+
+    try {
+      final recent = await _searchHistory.recent();
+      final featured = await _catalog.featured();
+      if (!mounted) return;
+      setState(() {
+        _recentSearches = recent;
+        _featured = featured;
+        _isLoadingLanding = false;
+      });
+    } catch (error) {
+      _showFailure(error);
+    }
   }
 
   Future<void> _runSearch(String rawQuery) async {
@@ -89,20 +107,34 @@ class _OpacSearchScreenState extends State<OpacSearchScreen> {
         _recentSearches = recent;
         _view = result.isEmpty ? _OpacView.empty : _OpacView.results;
       });
-    } on CatalogException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = e.message;
-        _view = _OpacView.error;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = 'Something went wrong. Please try again.';
-        _view = _OpacView.error;
-      });
+    } catch (error) {
+      _showFailure(error);
     }
   }
+
+  /// The one place a repository failure becomes something on screen, so the
+  /// landing and search paths cannot drift apart.
+  void _showFailure(Object error) {
+    if (!mounted) return;
+    setState(() {
+      _errorMessage = _messageFor(error);
+      _view = _OpacView.error;
+    });
+  }
+
+  /// Turns anything thrown into text a student can act on.
+  ///
+  /// [CatalogNotFoundException] is a [CatalogException], so without its own
+  /// case its record-level wording ("that record could not be found") would
+  /// surface on this list-shaped screen. Neither search() nor featured() is
+  /// documented to throw it, but handling it costs a line and keeps the
+  /// wording sensible if one ever does.
+  String _messageFor(Object error) => switch (error) {
+    CatalogNotFoundException() =>
+      'The library catalog could not complete that request. Please try again.',
+    CatalogException(:final message) => message,
+    _ => 'Something went wrong. Please try again.',
+  };
 
   void _resetToLanding() {
     setState(() {
@@ -111,6 +143,10 @@ class _OpacSearchScreenState extends State<OpacSearchScreen> {
       _result = null;
       _view = _OpacView.landing;
     });
+
+    // There is nothing to return to if the landing data never arrived, so
+    // re-request it rather than reveal an empty shelf.
+    if (_isLoadingLanding) _loadLanding();
   }
 
   void _handleIndexSelected(int position) {
@@ -172,9 +208,17 @@ class _OpacSearchScreenState extends State<OpacSearchScreen> {
         return const ListSkeleton();
 
       case _OpacView.error:
+        // An empty submitted query means nothing has been searched yet, so the
+        // failure came from the landing load and that is what retry repeats.
+        final failedBeforeSearching = _submittedQuery.isEmpty;
         return _OpacErrorView(
+          title: failedBeforeSearching
+              ? 'Catalog unavailable'
+              : 'Search unavailable',
           message: _errorMessage,
-          onRetry: () => _runSearch(_submittedQuery),
+          onRetry: failedBeforeSearching
+              ? _loadLanding
+              : () => _runSearch(_submittedQuery),
         );
 
       case _OpacView.empty:
@@ -376,17 +420,22 @@ class _OpacEmptyView extends StatelessWidget {
 }
 
 class _OpacErrorView extends StatelessWidget {
+  final String title;
   final String message;
   final VoidCallback onRetry;
 
-  const _OpacErrorView({required this.message, required this.onRetry});
+  const _OpacErrorView({
+    required this.title,
+    required this.message,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
       child: ErrorState(
-        title: 'Search unavailable',
+        title: title,
         description: message,
         onRetry: onRetry,
       ),

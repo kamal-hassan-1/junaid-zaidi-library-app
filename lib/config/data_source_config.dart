@@ -26,6 +26,12 @@ class DataSourceConfig {
 
   static const DataSource session = defaultSource;
 
+  /// Cannot be [DataSource.rest] yet — no REST implementation exists, so the
+  /// registry throws on that branch rather than pretending otherwise. Left
+  /// deriving from [defaultSource] so it moves with everything else once one
+  /// does.
+  static const DataSource patron = defaultSource;
+
   // Search history is deliberately absent. It is device-local state with no
   // remote equivalent, so there is nothing to switch — see
   // SearchHistoryRepository.

@@ -24,28 +24,16 @@ Widget groupedList(SemanticColors colors, List<Widget> rows) {
 }
 
 const Map<MoreMenuSection, String> _sectionLabels = {
+  MoreMenuSection.account: 'My Library',
   MoreMenuSection.library: 'Library',
   MoreMenuSection.community: 'Community',
 };
 
-Widget _buildSectionList(BuildContext context, SemanticColors colors, MoreMenuSection section) {
-  final items = moreMenu.where((item) => item.section == section).toList();
-  return groupedList(colors, [
-    for (var i = 0; i < items.length; i++)
-      ListRow(
-        icon: items[i].icon,
-        label: items[i].label,
-        accent: items[i].accent,
-        onTap: items[i].routeName != null
-            ? () => Navigator.of(context).pushNamed(items[i].routeName!)
-            : null,
-        badge: items[i].routeName == null
-            ? const AppBadge(label: 'Coming soon', intent: 'warning')
-            : null,
-        showDivider: i < items.length - 1,
-      ),
-  ]);
-}
+const List<MoreMenuSection> _sectionOrder = [
+  MoreMenuSection.account,
+  MoreMenuSection.library,
+  MoreMenuSection.community,
+];
 
 class MoreScreen extends StatefulWidget {
   const MoreScreen({super.key});
@@ -76,6 +64,56 @@ class _MoreScreenState extends State<MoreScreen> {
     }
   }
 
+  /// Null leaves the row inert, which is how "Coming soon" items render.
+  VoidCallback? _onTapItem(MoreMenuItem item) {
+    final routeName = item.routeName;
+    if (routeName == null) return null;
+    if (!item.requiresAuth) {
+      return () => Navigator.of(context).pushNamed(routeName);
+    }
+    return () => _openGuarded(routeName);
+  }
+
+  /// Mirrors HomeScreen's OPAC card: the patron account is account-only, so a
+  /// guest gets the sign-in prompt rather than a screen that could only fail
+  /// once it asked the backend whose loans to show.
+  Future<void> _openGuarded(String routeName) async {
+    final auth = AuthScope.of(context);
+
+    if (auth.isAuthenticated) {
+      Navigator.of(context).pushNamed(routeName);
+      return;
+    }
+
+    final action = await AuthRequiredDialog.show(context);
+    switch (action) {
+      case AuthPromptAction.signIn:
+        await auth.onRequestAuth(AuthRoutes.emailLogin);
+      case AuthPromptAction.createAccount:
+        await auth.onRequestAuth(AuthRoutes.signupEmail);
+      case AuthPromptAction.later:
+      case null:
+        break;
+    }
+  }
+
+  Widget _buildSectionList(SemanticColors colors, MoreMenuSection section) {
+    final items = moreMenu.where((item) => item.section == section).toList();
+    return groupedList(colors, [
+      for (var i = 0; i < items.length; i++)
+        ListRow(
+          icon: items[i].icon,
+          label: items[i].label,
+          accent: items[i].accent,
+          onTap: _onTapItem(items[i]),
+          badge: items[i].routeName == null
+              ? const AppBadge(label: 'Coming soon', intent: 'warning')
+              : null,
+          showDivider: i < items.length - 1,
+        ),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = useTheme(context);
@@ -101,7 +139,7 @@ class _MoreScreenState extends State<MoreScreen> {
               child: _buildHeroRow(colors, isGuest),
             ),
           ),
-          for (final section in [MoreMenuSection.library, MoreMenuSection.community])
+          for (final section in _sectionOrder)
             Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.lg),
               child: Column(
@@ -115,7 +153,7 @@ class _MoreScreenState extends State<MoreScreen> {
                       text: _sectionLabels[section]!,
                     ),
                   ),
-                  _buildSectionList(context, colors, section),
+                  _buildSectionList(colors, section),
                 ],
               ),
             ),

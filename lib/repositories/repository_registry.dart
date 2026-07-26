@@ -2,7 +2,11 @@ import '../config/api_constants.dart';
 import '../config/data_source_config.dart';
 import 'catalog_repository.dart';
 import 'mock/mock_catalog_repository.dart';
+import 'mock/mock_patron_repository.dart';
+import 'mock/mock_session_repository.dart';
+import 'patron_repository.dart';
 import 'rest/rest_catalog_repository.dart';
+import 'rest/rest_session_repository.dart';
 import 'search_history_repository.dart';
 import 'session_repository.dart';
 
@@ -16,40 +20,57 @@ class RepositoryRegistry {
   final SearchHistoryRepository searchHistory;
 
   final SessionRepository? _session;
+  final PatronRepository? _patron;
 
   const RepositoryRegistry({
     required this.catalog,
     required this.searchHistory,
     SessionRepository? session,
-  }) : _session = session;
+    PatronRepository? patron,
+  }) : _session = session,
+       _patron = patron;
 
   /// Builds the registry from `DataSourceConfig`, with per-repository
   /// overrides for tests.
   factory RepositoryRegistry.fromConfig({
     DataSource catalog = DataSourceConfig.catalog,
+    DataSource session = DataSourceConfig.session,
+    DataSource patron = DataSourceConfig.patron,
   }) {
     return RepositoryRegistry(
       catalog: _buildCatalog(catalog),
       searchHistory: MockSearchHistoryRepository(),
+      session: _buildSession(session),
+      patron: _buildPatron(patron),
     );
   }
 
   /// The session repository.
   ///
-  /// Throws until Step 5 implements one. [fromConfig] leaves it unset rather
-  /// than building something that throws eagerly, because an eager throw would
-  /// make the whole registry unconstructible and take `main.dart` down with
-  /// it. Nothing reads this yet — the auth flow still uses `KohaAuthService`
-  /// directly.
+  /// Optional on the constructor so that tests needing only a catalog can omit
+  /// it; [fromConfig] always supplies one.
   SessionRepository get session {
     final session = _session;
     if (session == null) {
-      throw UnimplementedError(
-        'No SessionRepository implementation exists yet; it arrives in Step 5. '
-        'The auth flow still calls KohaAuthService directly.',
+      throw StateError(
+        'This RepositoryRegistry was built without a SessionRepository. Use '
+        'RepositoryRegistry.fromConfig(), or pass one to the constructor.',
       );
     }
     return session;
+  }
+
+  /// The patron repository. Optional on the constructor for the same reason
+  /// [session] is.
+  PatronRepository get patron {
+    final patron = _patron;
+    if (patron == null) {
+      throw StateError(
+        'This RepositoryRegistry was built without a PatronRepository. Use '
+        'RepositoryRegistry.fromConfig(), or pass one to the constructor.',
+      );
+    }
+    return patron;
   }
 
   /// Both branches now construct something. Selecting [DataSource.rest] no
@@ -59,6 +80,26 @@ class RepositoryRegistry {
     DataSource.mock => MockCatalogRepository(),
     DataSource.rest => RestCatalogRepository(
       baseUrl: ApiConstants.junoBaseUrl,
+    ),
+  };
+
+  /// Unlike the catalog, both session branches are real: the mock is not a
+  /// stand-in for a missing backend but the dev-account login, which is the
+  /// only way in while `ApiConstants.kohaBaseUrl` is still a placeholder.
+  static SessionRepository _buildSession(DataSource source) => switch (source) {
+    DataSource.mock => MockSessionRepository(),
+    DataSource.rest => RestSessionRepository(),
+  };
+
+  /// Only the mock branch exists. Selecting [DataSource.rest] for the patron
+  /// account fails at startup rather than at the first call — a deliberate
+  /// difference from the catalog, because there is no `RestPatronRepository` to
+  /// construct at all, and no endpoints for one to call.
+  static PatronRepository _buildPatron(DataSource source) => switch (source) {
+    DataSource.mock => MockPatronRepository(),
+    DataSource.rest => throw UnimplementedError(
+      'RestPatronRepository does not exist yet. Keep DataSourceConfig.patron '
+      'on DataSource.mock until the patron endpoints are defined.',
     ),
   };
 

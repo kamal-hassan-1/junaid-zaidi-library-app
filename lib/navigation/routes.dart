@@ -20,6 +20,13 @@ class MoreRoutes {
 
   static const String root = '/more';
   static const String profile = '/more/profile';
+
+  /// The patron module. Account-only, so both are pushed through MoreScreen's
+  /// authentication check rather than directly.
+  static const String myLoans = '/more/loans';
+  static const String myHolds = '/more/holds';
+
+
   static const String guides = '/more/guides';
   static const String map = '/more/map';
   static const String about = '/more/about';
