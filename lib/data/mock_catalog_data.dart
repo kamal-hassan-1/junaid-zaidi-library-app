@@ -2,9 +2,9 @@ import '../models/catalog_holding.dart';
 import '../models/catalog_item.dart';
 
 /// Stand-in catalog used while the OPAC UI is built ahead of the backend.
-/// Consumed only by OpacService — no screen imports this file, so when
-/// GET /api/v1/juno/search goes live this whole file is deleted and
-/// nothing above the service layer notices.
+/// Consumed only by MockCatalogRepository — no screen imports this file, so
+/// when GET /api/v1/juno/search goes live this whole file is deleted and
+/// nothing above the repository layer notices.
 ///
 /// The data is shaped to exercise every UI state on purpose: titles that
 /// are too long for one line, missing publication years, records with no

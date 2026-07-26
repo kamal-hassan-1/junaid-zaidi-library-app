@@ -1,4 +1,4 @@
-﻿/// Centralized API configuration (SDS §7.4). Every service reads from
+/// Centralized API configuration (SDS §7.4). Every service reads from
 /// here — never hardcode a URL anywhere else in the app.
 class ApiConstants {
   const ApiConstants._();
@@ -8,6 +8,17 @@ class ApiConstants {
   static const String kohaBaseUrl = 'https://REPLACE_WITH_YOUR_KOHA_URL';
 
   static const String kohaAuthEndpoint = '$kohaBaseUrl/api/v1/auth/password';
+
+  /// Origin of the Juno backend that will proxy Koha for this app — the host
+  /// serving /api/v1/juno/*. Separate from [kohaBaseUrl] because they are two
+  /// different services: Koha is talked to directly only for password login,
+  /// while the catalog goes through Juno so requests can be authorized with a
+  /// Firebase-derived token.
+  ///
+  /// Nothing reads this yet. RestCatalogRepository is a placeholder and
+  /// DataSourceConfig still selects the mock, so no request is ever sent here.
+  // TODO(Muaaz): replace once the Juno backend has a host — no trailing slash.
+  static const String junoBaseUrl = 'https://REPLACE_WITH_YOUR_JUNO_API_URL';
 
   static const String firestoreStudentRequestsCollection = 'student_requests';
 

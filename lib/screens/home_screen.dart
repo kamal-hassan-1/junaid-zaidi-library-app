@@ -32,10 +32,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// The catalog is account-only: the backend that will replace OpacService's
-  /// mock data authorizes every request with a Firebase ID token, which a
-  /// guest doesn't have. So guests get the sign-in prompt instead of a screen
-  /// that would only fail later.
+  /// The catalog is account-only: the backend that will replace the mock
+  /// CatalogRepository authorizes every request with a Firebase ID token,
+  /// which a guest doesn't have. So guests get the sign-in prompt instead of a
+  /// screen that would only fail later.
   Future<void> _openOpac() async {
     final auth = AuthScope.of(context);
 

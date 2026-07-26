@@ -3,7 +3,8 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../../models/catalog_holding.dart';
 import '../../models/catalog_item.dart';
-import '../../services/opac_service.dart';
+import '../../repositories/catalog_repository.dart';
+import '../../repositories/repository_scope.dart';
 import '../../theme/theme.dart';
 import '../../widgets/ui.dart';
 
@@ -14,14 +15,14 @@ enum _BookDetailView { loading, content, notFound, error }
 class BookDetailScreen extends StatefulWidget {
   final String biblioId;
 
-  /// Optional only for focused widget tests. Production callers use the
-  /// default [OpacService], matching the app's existing service pattern.
-  final OpacService? service;
+  /// Optional only for focused widget tests. Production callers leave this
+  /// null and get the repository from [RepositoryScope].
+  final CatalogRepository? repository;
 
   const BookDetailScreen({
     super.key,
     required this.biblioId,
-    this.service,
+    this.repository,
   });
 
   @override
@@ -29,7 +30,7 @@ class BookDetailScreen extends StatefulWidget {
 }
 
 class _BookDetailScreenState extends State<BookDetailScreen> {
-  late final OpacService _opacService;
+  late final CatalogRepository _catalog;
 
   _BookDetailView _view = _BookDetailView.loading;
   CatalogItem? _book;
@@ -38,7 +39,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _opacService = widget.service ?? OpacService();
+    _catalog = widget.repository ?? RepositoryScope.of(context).catalog;
     _loadBook();
   }
 
@@ -46,16 +47,16 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     setState(() => _view = _BookDetailView.loading);
 
     try {
-      final book = await _opacService.getBiblio(widget.biblioId);
+      final book = await _catalog.getBiblio(widget.biblioId);
       if (!mounted) return;
       setState(() {
         _book = book;
         _view = _BookDetailView.content;
       });
-    } on OpacNotFoundException {
+    } on CatalogNotFoundException {
       if (!mounted) return;
       setState(() => _view = _BookDetailView.notFound);
-    } on OpacException catch (error) {
+    } on CatalogException catch (error) {
       if (!mounted) return;
       setState(() {
         _errorMessage = error.message;

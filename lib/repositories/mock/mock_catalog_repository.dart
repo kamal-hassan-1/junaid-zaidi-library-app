@@ -1,79 +1,43 @@
 import 'dart:math';
 
-import '../data/mock_catalog_data.dart';
-import '../data/search_indexes.dart';
-import '../models/catalog_item.dart';
-import '../models/catalog_search_result.dart';
+import '../../data/mock_catalog_data.dart';
+import '../../data/search_indexes.dart';
+import '../../models/catalog_item.dart';
+import '../../models/catalog_search_result.dart';
+import '../catalog_repository.dart';
+import '../search_history_repository.dart';
 
-/// Thrown when a catalog request fails. Callers show [message] directly —
-/// it is already written to be user-facing, matching the convention
-/// KohaAuthException established.
-class OpacException implements Exception {
-  final String message;
-  const OpacException(this.message);
-
-  @override
-  String toString() => message;
-}
-
-/// A catalog request completed successfully, but the requested record no
-/// longer exists. Kept distinct from [OpacException] so the detail screen
-/// can show a calm not-found state instead of a network-error treatment.
-class OpacNotFoundException extends OpacException {
-  const OpacNotFoundException(super.message);
-}
-
-/// The catalog data source for the OPAC module.
+/// Answers every catalog call from [mockCatalogItems], so the OPAC UI can be
+/// built and reviewed before the backend exists.
 ///
-/// Phase 1 answers every call from [mockCatalogItems] so the UI can be
-/// built and reviewed before the backend exists. The method signatures
-/// are already the ones the real implementation needs:
+/// This is `OpacService` moved behind [CatalogRepository] unchanged — same
+/// latency, same ranking, same failure triggers. Nothing about the module's
+/// behaviour differs; only who hands the screens their data.
 ///
-///   search()     -> GET /api/v1/juno/search?q=&index=&page=&per_page=
-///   getBiblio()  -> GET /api/v1/juno/biblios/{id}
-///
-/// Every method is async and returns a Future even though mock lookups
-/// are synchronous. That is deliberate: if these were synchronous now,
-/// swapping in real HTTP calls later would change every call site and
-/// every FutureBuilder in the module.
-class OpacService {
-  /// Simulated network delay, so loading states are actually visible
-  /// while the UI is being reviewed. Tests can pass [Duration.zero].
+/// Every method is async even though mock lookups are synchronous. That was
+/// deliberate from the start, and it is what let this become a move rather
+/// than a rewrite.
+class MockCatalogRepository implements CatalogRepository {
+  /// Simulated network delay, so loading states are actually visible while
+  /// the UI is being reviewed. Tests can pass [Duration.zero].
   final Duration latency;
 
-  OpacService({this.latency = const Duration(milliseconds: 700)});
+  MockCatalogRepository({this.latency = const Duration(milliseconds: 700)});
 
-  static const int defaultPerPage = 20;
-
-  /// Typing this as the search term forces a failure, so the error state
-  /// can be exercised on-device without unplugging anything.
+  /// Typing this as the search term forces a failure, so the error state can
+  /// be exercised on-device without unplugging anything.
   static const String _failureTrigger = 'error';
-
-  static const int _maxRecentSearches = 6;
-
-  /// Seeded so the landing state has something to show on a first run.
-  /// In-memory and static, which is enough for Phase 1 — Phase 2 moves
-  /// this behind SecureStorageService so it survives restarts, without
-  /// changing either method's signature.
-  static final List<String> _recentSearches = [
-    'algorithms',
-    'operating systems',
-    'Kotler',
-    '9780262033848',
-  ];
 
   /// Records shown on the landing state before anyone has searched.
   /// Phase 2 replaces this with the student's recently viewed books.
   static const List<String> _featuredIds = ['1', '13', '17', '19', '25'];
 
-  /// Searches the catalog, scoped to [index].
-  ///
-  /// [page] is 1-based, matching the backend contract.
+  @override
   Future<CatalogSearchResult> search({
     required String query,
     SearchIndex index = defaultSearchIndex,
     int page = 1,
-    int perPage = defaultPerPage,
+    int perPage = defaultCatalogPerPage,
   }) async {
     final trimmed = query.trim();
     if (trimmed.isEmpty) return const CatalogSearchResult.empty();
@@ -81,7 +45,7 @@ class OpacService {
     await Future<void>.delayed(latency);
 
     if (trimmed.toLowerCase() == _failureTrigger) {
-      throw const OpacException(
+      throw const CatalogException(
         'Could not reach the library catalog. Check your connection and try again.',
       );
     }
@@ -114,21 +78,21 @@ class OpacService {
     );
   }
 
-  /// Full record for the detail screen, including its holdings.
+  @override
   Future<CatalogItem> getBiblio(String id) async {
     await Future<void>.delayed(latency);
 
     // Mirrors search("error") so the detail screen's failure treatment can
     // be reviewed before the real endpoint exists.
     if (id.toLowerCase() == _failureTrigger) {
-      throw const OpacException(
+      throw const CatalogException(
         'Could not load this catalog record. Check your connection and try again.',
       );
     }
 
     final index = mockCatalogItems.indexWhere((i) => i.id == id);
     if (index == -1) {
-      throw const OpacNotFoundException(
+      throw const CatalogNotFoundException(
         'That record could not be found in the catalog.',
       );
     }
@@ -139,27 +103,10 @@ class OpacService {
     return item.copyWith(holdings: mockCatalogHoldings[id] ?? const []);
   }
 
-  /// Most recent queries first. Async for the same reason the rest of
-  /// this class is: the Phase 2 implementation reads from storage.
-  Future<List<String>> recentSearches() async =>
-      List<String>.unmodifiable(_recentSearches);
-
-  Future<void> recordSearch(String query) async {
-    final trimmed = query.trim();
-    if (trimmed.isEmpty) return;
-
-    _recentSearches
-        .removeWhere((q) => q.toLowerCase() == trimmed.toLowerCase());
-    _recentSearches.insert(0, trimmed);
-
-    if (_recentSearches.length > _maxRecentSearches) {
-      _recentSearches.removeRange(_maxRecentSearches, _recentSearches.length);
-    }
-  }
-
   /// Shelf of records for the landing state, spread across departments
   /// rather than taking the first N so the list doesn't look like an
   /// all-computer-science catalog.
+  @override
   Future<List<CatalogItem>> featured() async {
     return _featuredIds
         .map((id) => mockCatalogItems.firstWhere((item) => item.id == id))
@@ -220,4 +167,46 @@ class OpacService {
   }
 
   String _digitsOnly(String value) => value.replaceAll(RegExp(r'[^0-9]'), '');
+}
+
+/// Recent searches, held in memory for the life of the process.
+///
+/// This is the other half of `OpacService`, carried over verbatim: the same
+/// seeded list, the same de-duplicating insert, the same cap. It lives in this
+/// file rather than its own because it is a dozen lines of transitional code —
+/// a later phase moves it behind `SecureStorageService` so history survives
+/// restarts, at which point it earns a file of its own.
+///
+/// The backing list stays `static` deliberately. It was static on OpacService,
+/// which each screen constructed for itself, so recorded searches were already
+/// shared process-wide. Keeping it static preserves that exactly.
+class MockSearchHistoryRepository implements SearchHistoryRepository {
+  static const int _maxRecentSearches = 6;
+
+  /// Seeded so the landing state has something to show on a first run.
+  static final List<String> _recentSearches = [
+    'algorithms',
+    'operating systems',
+    'Kotler',
+    '9780262033848',
+  ];
+
+  /// Most recent queries first. Async for the same reason the rest of the
+  /// layer is: the storage-backed implementation will need to be.
+  @override
+  Future<List<String>> recent() async =>
+      List<String>.unmodifiable(_recentSearches);
+
+  @override
+  Future<void> record(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return;
+
+    _recentSearches.removeWhere((q) => q.toLowerCase() == trimmed.toLowerCase());
+    _recentSearches.insert(0, trimmed);
+
+    if (_recentSearches.length > _maxRecentSearches) {
+      _recentSearches.removeRange(_maxRecentSearches, _recentSearches.length);
+    }
+  }
 }

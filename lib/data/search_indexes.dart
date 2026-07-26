@@ -4,7 +4,7 @@
 ///
 /// Phase 1 ships the four that cover almost all student intent. Subject,
 /// ISSN, Series and Call number are deliberately left out for now; adding
-/// one later is a single enum case plus a branch in OpacService.
+/// one later is a single enum case plus a branch in each CatalogRepository.
 ///
 /// [apiValue] is the `index=` query parameter the backend will receive
 /// once GET /api/v1/juno/search is live.

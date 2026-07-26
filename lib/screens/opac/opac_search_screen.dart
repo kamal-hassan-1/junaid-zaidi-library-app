@@ -4,7 +4,9 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import '../../data/search_indexes.dart';
 import '../../models/catalog_item.dart';
 import '../../models/catalog_search_result.dart';
-import '../../services/opac_service.dart';
+import '../../repositories/catalog_repository.dart';
+import '../../repositories/repository_scope.dart';
+import '../../repositories/search_history_repository.dart';
 import '../../theme/theme.dart';
 import '../../widgets/ui.dart';
 import 'book_detail_screen.dart';
@@ -26,7 +28,11 @@ class OpacSearchScreen extends StatefulWidget {
 }
 
 class _OpacSearchScreenState extends State<OpacSearchScreen> {
-  final _opacService = OpacService();
+  // Resolved in initState rather than at field-initializer time, since both
+  // need a BuildContext. Safe there because RepositoryScope.of does not
+  // register a dependency — see its doc comment.
+  late final CatalogRepository _catalog;
+  late final SearchHistoryRepository _searchHistory;
 
   String _query = '';
   SearchIndex _index = defaultSearchIndex;
@@ -43,12 +49,15 @@ class _OpacSearchScreenState extends State<OpacSearchScreen> {
   @override
   void initState() {
     super.initState();
+    final repositories = RepositoryScope.of(context);
+    _catalog = repositories.catalog;
+    _searchHistory = repositories.searchHistory;
     _loadLanding();
   }
 
   Future<void> _loadLanding() async {
-    final recent = await _opacService.recentSearches();
-    final featured = await _opacService.featured();
+    final recent = await _searchHistory.recent();
+    final featured = await _catalog.featured();
     if (!mounted) return;
     setState(() {
       _recentSearches = recent;
@@ -71,16 +80,16 @@ class _OpacSearchScreenState extends State<OpacSearchScreen> {
     });
 
     try {
-      final result = await _opacService.search(query: query, index: _index);
-      await _opacService.recordSearch(query);
-      final recent = await _opacService.recentSearches();
+      final result = await _catalog.search(query: query, index: _index);
+      await _searchHistory.record(query);
+      final recent = await _searchHistory.recent();
       if (!mounted) return;
       setState(() {
         _result = result;
         _recentSearches = recent;
         _view = result.isEmpty ? _OpacView.empty : _OpacView.results;
       });
-    } on OpacException catch (e) {
+    } on CatalogException catch (e) {
       if (!mounted) return;
       setState(() {
         _errorMessage = e.message;

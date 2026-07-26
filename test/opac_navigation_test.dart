@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:junaid_zaidi_library_app/navigation/auth_scope.dart';
 import 'package:junaid_zaidi_library_app/navigation/routes.dart';
+import 'package:junaid_zaidi_library_app/repositories/repository_registry.dart';
+import 'package:junaid_zaidi_library_app/repositories/repository_scope.dart';
 import 'package:junaid_zaidi_library_app/screens/opac/book_detail_screen.dart';
 import 'package:junaid_zaidi_library_app/screens/opac/opac_search_screen.dart';
 import 'package:junaid_zaidi_library_app/screens/root_shell.dart';
@@ -34,15 +36,21 @@ void main() {
     addTearDown(() => FlutterError.onError = previousOnError);
 
     await tester.pumpWidget(
-      AppThemeProvider(
-        child: MaterialApp(
-          home: AuthScope(
-            isGuest: isGuest,
-            onLogout: () async {},
-            onRequestAuth: (routeName) async {
-              requestedAuthRoutes.add(routeName);
-            },
-            child: const RootShell(),
+      // Mirrors main.dart: the OPAC screens read their CatalogRepository from
+      // this scope, so the shell needs one above it. fromConfig() gives the
+      // same mock implementation the app runs on, latency included.
+      RepositoryScope(
+        repositories: RepositoryRegistry.fromConfig(),
+        child: AppThemeProvider(
+          child: MaterialApp(
+            home: AuthScope(
+              isGuest: isGuest,
+              onLogout: () async {},
+              onRequestAuth: (routeName) async {
+                requestedAuthRoutes.add(routeName);
+              },
+              child: const RootShell(),
+            ),
           ),
         ),
       ),
