@@ -45,6 +45,11 @@ class _AuthGateState extends State<AuthGate> {
 
   _AuthState _state = _AuthState.loading;
 
+  /// Set when a guest asks for a specific auth screen (see
+  /// [_handleRequestAuth]); stacked on top of Welcome in the signed-out
+  /// Navigator. Null means the normal Welcome-only entry point.
+  String? _pendingAuthRoute;
+
   @override
   void initState() {
     super.initState();
@@ -66,13 +71,33 @@ class _AuthGateState extends State<AuthGate> {
   /// Passed to LoginScreen and EmailLoginScreen. Flips the gate over to
   /// RootShell the moment either kind of login succeeds.
   void _handleAuthenticated() {
-    setState(() => _state = _AuthState.authenticated);
+    setState(() {
+      _pendingAuthRoute = null;
+      _state = _AuthState.authenticated;
+    });
   }
 
   /// Passed to WelcomeScreen's "Continue as Guest" button.
   Future<void> _handleContinueAsGuest() async {
     await _secureStorage.setGuestMode(true);
-    setState(() => _state = _AuthState.guest);
+    setState(() {
+      _pendingAuthRoute = null;
+      _state = _AuthState.guest;
+    });
+  }
+
+  /// Exposed via AuthScope as `onRequestAuth`. A guest who taps a gated
+  /// feature and chooses "Sign In"/"Create Account" stops being a guest and
+  /// lands directly on that screen. Unlike [_handleLogout] there's no
+  /// session to tear down — only a real account reaches this path via the
+  /// gated features, and those navigate straight through instead.
+  Future<void> _handleRequestAuth(String routeName) async {
+    await _secureStorage.setGuestMode(false);
+    if (!mounted) return;
+    setState(() {
+      _pendingAuthRoute = routeName;
+      _state = _AuthState.signedOut;
+    });
   }
 
   /// Exposed via AuthScope as `onLogout`. Doubles as "exit guest mode" —
@@ -83,7 +108,12 @@ class _AuthGateState extends State<AuthGate> {
     await _kohaAuth.logout();
     await _firebaseAuth.signOut();
     await _secureStorage.setGuestMode(false);
-    if (mounted) setState(() => _state = _AuthState.signedOut);
+    if (mounted) {
+      setState(() {
+        _pendingAuthRoute = null;
+        _state = _AuthState.signedOut;
+      });
+    }
   }
 
   Route<dynamic> _onGenerateAuthRoute(RouteSettings settings) {
@@ -115,13 +145,34 @@ class _AuthGateState extends State<AuthGate> {
       case _AuthState.loading:
         return const _AuthLoadingScreen();
       case _AuthState.authenticated:
-        return AuthScope(onLogout: _handleLogout, isGuest: false, child: const RootShell());
+        return AuthScope(
+          onLogout: _handleLogout,
+          onRequestAuth: _handleRequestAuth,
+          isGuest: false,
+          child: const RootShell(),
+        );
       case _AuthState.guest:
-        return AuthScope(onLogout: _handleLogout, isGuest: true, child: const RootShell());
+        return AuthScope(
+          onLogout: _handleLogout,
+          onRequestAuth: _handleRequestAuth,
+          isGuest: true,
+          child: const RootShell(),
+        );
       case _AuthState.signedOut:
         return Navigator(
           initialRoute: AuthRoutes.welcome,
           onGenerateRoute: _onGenerateAuthRoute,
+          // Navigator's default expansion of a path-style initial route
+          // builds one route per '/' segment, which buried Welcome under two
+          // placeholder screens ('/' and '/auth' both fall through to
+          // _ComingSoonScreen). Building the stack by hand also puts a
+          // requested login/signup screen on top with Welcome behind it, so
+          // back still works from there.
+          onGenerateInitialRoutes: (_, _) => [
+            _onGenerateAuthRoute(const RouteSettings(name: AuthRoutes.welcome)),
+            if (_pendingAuthRoute != null)
+              _onGenerateAuthRoute(RouteSettings(name: _pendingAuthRoute)),
+          ],
         );
     }
   }

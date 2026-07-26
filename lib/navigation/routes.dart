@@ -1,3 +1,20 @@
+/// Route names for the nested Navigator inside the Home tab. Home was a
+/// single leaf screen until the OPAC module arrived and gave it a stack.
+class HomeRoutes {
+  const HomeRoutes._();
+
+  static const String root = '/home';
+}
+
+/// Route names for the OPAC module. Book Detail isn't listed: OpacSearchScreen
+/// pushes it directly with the biblio id, which keeps the id type-checked
+/// instead of smuggled through `RouteSettings.arguments`.
+class OpacRoutes {
+  const OpacRoutes._();
+
+  static const String search = '/opac';
+}
+
 class MoreRoutes {
   const MoreRoutes._();
 

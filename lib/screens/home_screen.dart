@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../data/home_resources.dart';
 import '../data/library_images.dart';
 import '../navigation/app_tab_scope.dart';
+import '../navigation/auth_scope.dart';
+import '../navigation/routes.dart';
 import '../theme/theme.dart';
 import '../widgets/ui.dart';
 
@@ -17,6 +19,45 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String _query = '';
+
+  /// Resolves a card's tap handler; null leaves the card inert.
+  VoidCallback? _onTapResource(HomeResource resource) {
+    switch (resource.action) {
+      case HomeResourceAction.none:
+        return null;
+      case HomeResourceAction.exploreSpacesTab:
+        return () => AppTabScope.of(context).goToTab(AppTabs.exploreSpaces);
+      case HomeResourceAction.opacSearch:
+        return _openOpac;
+    }
+  }
+
+  /// The catalog is account-only: the backend that will replace OpacService's
+  /// mock data authorizes every request with a Firebase ID token, which a
+  /// guest doesn't have. So guests get the sign-in prompt instead of a screen
+  /// that would only fail later.
+  Future<void> _openOpac() async {
+    final auth = AuthScope.of(context);
+
+    if (auth.isAuthenticated) {
+      // Pushes onto the Home tab's Navigator, so the bottom bar stays put.
+      Navigator.of(context).pushNamed(OpacRoutes.search);
+      return;
+    }
+
+    final action = await AuthRequiredDialog.show(context);
+    switch (action) {
+      case AuthPromptAction.signIn:
+        await auth.onRequestAuth(AuthRoutes.emailLogin);
+      case AuthPromptAction.createAccount:
+        await auth.onRequestAuth(AuthRoutes.signupEmail);
+      // "Maybe Later", or dismissed by tapping outside — the dialog closing
+      // is the whole effect.
+      case AuthPromptAction.later:
+      case null:
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -133,9 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             title: resource.title,
                             subtitle: resource.subtitle,
                             accent: resource.accent,
-                            onTap: resource.opensExploreSpaces
-                                ? () => AppTabScope.of(context).goToTab(AppTabs.exploreSpaces)
-                                : null,
+                            onTap: _onTapResource(resource),
                           ),
                         ),
                     ],

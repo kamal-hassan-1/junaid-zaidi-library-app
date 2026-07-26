@@ -3,22 +3,27 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../theme/accents.dart';
 
-/// Static Home-screen resource shortcuts. Every entry except "Explore
-/// Spaces" is a static placeholder (no navigation) at this stage — per the
-/// project brief, only Explore Spaces navigates anywhere right now.
+/// What tapping a Home resource card does. The original app stored a generic
+/// expo-router path per item, but the destinations here aren't uniform — one
+/// switches bottom tabs, one pushes onto the Home stack behind an auth check,
+/// and the rest are still placeholders — so HomeScreen resolves each case
+/// explicitly instead.
+enum HomeResourceAction {
+  /// Static card, not tappable yet.
+  none,
+  exploreSpacesTab,
+  opacSearch,
+}
+
+/// Static Home-screen resource shortcuts. The HEC libraries, thesis catalog
+/// and student forms entries are still placeholders at this stage.
 class HomeResource {
   final String key;
   final String title;
   final String? subtitle;
   final IconData icon;
   final AppAccent accent;
-
-  // The original app's data model stores a generic expo-router path string
-  // per item, but only one item ever navigates anywhere (Explore Spaces),
-  // and in this Flutter port that navigation is a bottom-tab switch rather
-  // than a stack push — so a single boolean flag replaces the generic
-  // route field for that one case.
-  final bool opensExploreSpaces;
+  final HomeResourceAction action;
 
   const HomeResource({
     required this.key,
@@ -26,7 +31,7 @@ class HomeResource {
     this.subtitle,
     required this.icon,
     required this.accent,
-    this.opensExploreSpaces = false,
+    this.action = HomeResourceAction.none,
   });
 }
 
@@ -37,6 +42,7 @@ final List<HomeResource> homeResources = [
     subtitle: 'Catalog search',
     icon: LucideIcons.search,
     accent: AppAccent.brand,
+    action: HomeResourceAction.opacSearch,
   ),
   const HomeResource(
     key: 'hec-digital-library',
@@ -65,7 +71,7 @@ final List<HomeResource> homeResources = [
     subtitle: 'Study rooms & floors',
     icon: LucideIcons.compass,
     accent: AppAccent.brand,
-    opensExploreSpaces: true,
+    action: HomeResourceAction.exploreSpacesTab,
   ),
   const HomeResource(
     key: 'student-forms',

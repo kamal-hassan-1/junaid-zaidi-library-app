@@ -8,9 +8,14 @@ import '../theme/theme.dart';
 ///
 /// The clear/loading icon swaps based on a controlled `isSearching` boolean
 /// param rather than being hardcoded.
+///
+/// Passing [onSubmitted] turns the keyboard's action key into "Search" and
+/// fires on submit. Callers that only need live filtering (Home) leave it
+/// null and keep the default key.
 class SearchInput extends StatefulWidget {
   final String value;
   final ValueChanged<String> onChanged;
+  final ValueChanged<String>? onSubmitted;
   final VoidCallback? onClear;
   final String placeholder;
   final bool isSearching;
@@ -19,6 +24,7 @@ class SearchInput extends StatefulWidget {
     super.key,
     required this.value,
     required this.onChanged,
+    this.onSubmitted,
     this.onClear,
     this.placeholder = 'Search for books...',
     this.isSearching = false,
@@ -90,6 +96,9 @@ class _SearchInputState extends State<SearchInput> {
               controller: _controller,
               focusNode: _focusNode,
               onChanged: widget.onChanged,
+              onSubmitted: widget.onSubmitted,
+              textInputAction:
+                  widget.onSubmitted == null ? null : TextInputAction.search,
               style: AppTypography.bodyBase.toTextStyle(color: colors.text.primary),
               decoration: InputDecoration(
                 hintText: widget.placeholder,

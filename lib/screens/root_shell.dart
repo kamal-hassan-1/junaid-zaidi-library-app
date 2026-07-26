@@ -16,12 +16,18 @@ import 'more/guides_screen.dart';
 import 'more/map_screen.dart';
 import 'more/more_screen.dart';
 import 'more/profile_screen.dart';
+import 'opac/opac_search_screen.dart';
 
 /// Root navigation shell: bottom tab bar (Home / Library Resources /
-/// Explore Spaces / More) mirroring app/(tabs)/_layout.js, with a nested
-/// Navigator inside the More tab mirroring app/(tabs)/more/_layout.js's
-/// stack. Tabs are kept alive via IndexedStack so switching tabs preserves
-/// each screen's state, matching expo-router's `Tabs` behavior.
+/// Explore Spaces / More) mirroring app/(tabs)/_layout.js, with nested
+/// Navigators inside the Home and More tabs — More mirroring
+/// app/(tabs)/more/_layout.js's stack, Home hosting the OPAC module. Tabs
+/// are kept alive via IndexedStack so switching tabs preserves each screen's
+/// state, matching expo-router's `Tabs` behavior.
+///
+/// Pushing OPAC inside the Home tab (rather than over the whole shell) is
+/// what keeps the bottom bar visible throughout the catalog, and what lets
+/// Book Detail pop back to a still-live search results list.
 class RootShell extends StatefulWidget {
   const RootShell({super.key});
 
@@ -31,9 +37,76 @@ class RootShell extends StatefulWidget {
 
 class _RootShellState extends State<RootShell> {
   int _index = AppTabs.home;
+  final _homeNavigatorKey = GlobalKey<NavigatorState>();
   final _moreNavigatorKey = GlobalKey<NavigatorState>();
 
+  // One observer per Navigator — a NavigatorObserver binds itself to a single
+  // Navigator, so they can't be shared.
+  late final _NestedStackObserver _homeObserver;
+  late final _NestedStackObserver _moreObserver;
+
+  @override
+  void initState() {
+    super.initState();
+    _homeObserver = _NestedStackObserver(_handleNestedStackChanged);
+    _moreObserver = _NestedStackObserver(_handleNestedStackChanged);
+  }
+
   void _goToTab(int index) => setState(() => _index = index);
+
+  /// PopScope decides `canPop` at build time, so the shell has to rebuild
+  /// whenever a nested stack changes depth — otherwise the system back
+  /// button acts on a stale answer and pops the whole app instead of the
+  /// current tab's stack. Deferred to after the frame because observers also
+  /// fire while a Navigator is installing its initial route, mid-build.
+  void _handleNestedStackChanged() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  /// The tabs that own a stack; the other two are single screens.
+  GlobalKey<NavigatorState>? get _activeNestedNavigator => switch (_index) {
+    AppTabs.home => _homeNavigatorKey,
+    AppTabs.more => _moreNavigatorKey,
+    _ => null,
+  };
+
+  Route<dynamic> _onGenerateHomeRoute(RouteSettings settings) {
+    late final Widget page;
+    switch (settings.name) {
+      case OpacRoutes.search:
+        page = const OpacSearchScreen();
+      case HomeRoutes.root:
+      default:
+        page = const HomeScreen();
+    }
+    return MaterialPageRoute(builder: (_) => page, settings: settings);
+  }
+
+  /// A tab's Navigator, pinned to a single initial route.
+  ///
+  /// [Navigator.defaultGenerateInitialRoutes] expands a path-style
+  /// `initialRoute` into one route per '/' segment, so '/more' quietly built
+  /// a second MoreScreen underneath the first (both '/' and '/more' fall
+  /// through to the generator's default case). That left `canPop()` stuck on
+  /// true, breaking the back-button handling below.
+  Widget _nestedNavigator({
+    required GlobalKey<NavigatorState> key,
+    required NavigatorObserver observer,
+    required String initialRoute,
+    required Route<dynamic> Function(RouteSettings) onGenerateRoute,
+  }) {
+    return Navigator(
+      key: key,
+      observers: [observer],
+      initialRoute: initialRoute,
+      onGenerateRoute: onGenerateRoute,
+      onGenerateInitialRoutes: (_, _) => [
+        onGenerateRoute(RouteSettings(name: initialRoute)),
+      ],
+    );
+  }
 
   // Mirrors more/_layout.js's per-screen `title` options. The "More" tab
   // root has headerShown: false there (it renders its own in-content
@@ -88,25 +161,34 @@ class _RootShellState extends State<RootShell> {
     final colors = useTheme(context);
 
     final tabs = <Widget>[
-      const HomeScreen(),
+      _nestedNavigator(
+        key: _homeNavigatorKey,
+        observer: _homeObserver,
+        initialRoute: HomeRoutes.root,
+        onGenerateRoute: _onGenerateHomeRoute,
+      ),
       const LibraryResourcesScreen(),
       const ExploreSpacesScreen(),
-      Navigator(
+      _nestedNavigator(
         key: _moreNavigatorKey,
+        observer: _moreObserver,
         initialRoute: MoreRoutes.root,
         onGenerateRoute: _onGenerateMoreRoute,
       ),
     ];
 
-    final canPopMore = _index == AppTabs.more && (_moreNavigatorKey.currentState?.canPop() ?? false);
+    // Back unwinds the active tab's stack first, and only leaves the app once
+    // that tab is back at its root.
+    final nestedNavigator = _activeNestedNavigator;
+    final canPopNested = nestedNavigator?.currentState?.canPop() ?? false;
 
     return AppTabScope(
       goToTab: _goToTab,
       child: PopScope(
-        canPop: !canPopMore,
+        canPop: !canPopNested,
         onPopInvokedWithResult: (didPop, result) {
-          if (!didPop && canPopMore) {
-            _moreNavigatorKey.currentState?.maybePop();
+          if (!didPop) {
+            nestedNavigator?.currentState?.maybePop();
           }
         },
         child: Scaffold(
@@ -152,4 +234,24 @@ class _RootShellState extends State<RootShell> {
       ),
     );
   }
+}
+
+/// Reports every depth change in a tab's stack so RootShell can recompute
+/// whether the back button belongs to that tab or to the OS.
+class _NestedStackObserver extends NavigatorObserver {
+  final VoidCallback onChanged;
+
+  _NestedStackObserver(this.onChanged);
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) => onChanged();
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) => onChanged();
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) => onChanged();
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) => onChanged();
 }
