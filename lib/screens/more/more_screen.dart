@@ -87,12 +87,8 @@ class _MoreScreenState extends State<MoreScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Padding(
-            padding: EdgeInsets.only(bottom: AppSpacing.lg),
-            child: AppText(
-              'Account, resources & support',
-              variant: 'bodyBase',
-              tone: 'secondary',
-            ),
+            padding: EdgeInsets.only(bottom: AppSpacing.sm),
+            child: Heading(level: 5, tone: 'tertiary', text: 'Patron Profile'),
           ),
           Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.lg),
