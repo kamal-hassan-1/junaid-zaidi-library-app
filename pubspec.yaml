@@ -167,18 +167,28 @@ flutter_launcher_icons:
   adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
 
 # Native launch screen shown by Android before the Flutter engine is ready.
-# White background so it hands off seamlessly to SplashScreen, which continues
-# the same crest-on-light composition while Firebase/session checks run.
+# Background is gray-50 (AppPalette.gray[50], the same value SplashScreen gets
+# from colors.background.primary) so the handoff to the first Flutter frame is
+# invisible rather than a white-to-gray step.
+#
+# The app is light-only (AppThemeProvider always resolves lightColors), so the
+# *_dark values intentionally match the light ones — a genuinely dark native
+# splash would flash black before a light app.
+#
+# NOTE: after re-running `dart run flutter_native_splash:create`, re-check
+# android/app/src/main/res/values-night*/styles.xml. The generator hardcodes a
+# Theme.Black parent there, which reintroduces a black frame on dark-mode
+# devices; those files are hand-corrected to Theme.Light.
 flutter_native_splash:
-  color: "#FFFFFF"
-  image: "assets/logo.png"
-  color_dark: "#FFFFFF"
-  image_dark: "assets/logo.png"
+  color: "#F8F9FA"
+  image: "assets/icon/splash_logo.png"
+  color_dark: "#F8F9FA"
+  image_dark: "assets/icon/splash_logo.png"
   android: true
   ios: false
   web: false
   android_12:
     image: "assets/icon/splash_logo_android12.png"
-    icon_background_color: "#FFFFFF"
+    icon_background_color: "#F8F9FA"
     image_dark: "assets/icon/splash_logo_android12.png"
-    icon_background_color_dark: "#FFFFFF"
+    icon_background_color_dark: "#F8F9FA"

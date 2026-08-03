@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#FFFFFF</color>
+    <!-- gray-50, matching AppPalette.gray[50] / colors.background.primary, so the
+         native window background never differs from the first Flutter frame. -->
+    <color name="splash_background">#F8F9FA</color>
 </resources>

@@ -52,9 +52,13 @@ class _SplashScreenState extends State<SplashScreen>
     final colors = useTheme(context);
     final shadow = cardShadowDecoration(colors);
 
-    return Container(
-      color: colors.background.primary,
-      child: SafeArea(
+    // Scaffold, not a bare Container: AuthGate hands this straight to
+    // MaterialApp.home, so without a Material ancestor every AppText inherits
+    // the framework's "missing DefaultTextStyle" fallback and renders with
+    // yellow double underlines.
+    return Scaffold(
+      backgroundColor: colors.background.primary,
+      body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppGrid.margin),
           child: Column(

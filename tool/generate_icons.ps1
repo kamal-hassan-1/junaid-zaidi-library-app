@@ -47,6 +47,10 @@ New-Composite -OutFile (Join-Path $outDir 'app_icon.png') -Canvas 1024 -LogoSize
 New-Composite -OutFile (Join-Path $outDir 'app_icon_foreground.png') -Canvas 1024 -LogoSize 596
 
 # Android 12+ splash icon: 1152 canvas, artwork inside the inner 768 circle.
-# The pre-Android-12 splash needs no generated file — flutter_native_splash
-# points straight at assets/logo.png, which is already square and transparent.
 New-Composite -OutFile (Join-Path $outDir 'splash_logo_android12.png') -Canvas 1152 -LogoSize 660
+
+# Pre-Android-12 splash image. flutter_native_splash treats the source as the
+# 4x (xxxhdpi) asset, so this 528px canvas lands at 132 logical px with the
+# crest at 100 — exactly the tile size SplashScreen draws, which keeps the crest
+# from visibly resizing when the native screen hands off to the Flutter one.
+New-Composite -OutFile (Join-Path $outDir 'splash_logo.png') -Canvas 528 -LogoSize 400
