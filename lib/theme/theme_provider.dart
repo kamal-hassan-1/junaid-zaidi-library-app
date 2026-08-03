@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import 'semantic/dark.dart';
 import 'semantic/light.dart';
 import 'semantic/semantic_colors.dart';
 
@@ -18,25 +19,26 @@ class _InheritedAppTheme extends InheritedWidget {
   bool updateShouldNotify(_InheritedAppTheme oldWidget) => oldWidget.colors != colors;
 }
 
-/// Resolves light/dark semantic colors for the whole app.
+/// Resolves light/dark semantic colors from the OS (or Material) brightness.
 ///
-/// The original Expo app pins `userInterfaceStyle: "light"` in app.json, so
-/// dark mode is wired through (see theme/semantic/dark.dart) but not
-/// actually reachable on-device yet. This mirrors that by always resolving
-/// to [lightColors] — swap the `colors:` line below to wire up a future
-/// manual theme toggle.
+/// Prefer mounting this inside [MaterialApp.builder] so [brightness] comes from
+/// `ThemeMode.system`. If [brightness] is omitted, falls back to
+/// [MediaQuery.platformBrightnessOf].
 class AppThemeProvider extends StatelessWidget {
   final Widget child;
+  final Brightness? brightness;
 
-  const AppThemeProvider({super.key, required this.child});
+  const AppThemeProvider({super.key, required this.child, this.brightness});
 
   @override
   Widget build(BuildContext context) {
-    return _InheritedAppTheme(colors: lightColors, child: child);
+    final resolved = brightness ?? MediaQuery.platformBrightnessOf(context);
+    final colors = resolved == Brightness.dark ? darkColors : lightColors;
+    return _InheritedAppTheme(colors: colors, child: child);
   }
 }
 
-/// `useTheme(context).colors` — the active semantic color set.
+/// Active semantic color set for the current brightness.
 SemanticColors useTheme(BuildContext context) {
   final inherited = context.dependOnInheritedWidgetOfExactType<_InheritedAppTheme>();
   assert(inherited != null, 'useTheme() must be called within an AppThemeProvider');

@@ -153,6 +153,6 @@ any of this in production:
 | Session gate | `lib/screens/auth/auth_gate.dart` |
 | Koha API infra (future features) | `lib/services/koha_api_client.dart` |
 | Password change request | `lib/screens/more/request_password_change_screen.dart`, `lib/models/password_change_request.dart` |
-| Account creation + password sync automation | `functions/index.js` |
-| Security rules | `firestore.rules` |
+| Account creation + password sync automation | `admin-dashboard.html` |
+| Security rules | Firebase Console (Firestore rules) |
 | Admin review UI | `admin-dashboard.html` |
