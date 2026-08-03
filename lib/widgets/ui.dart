@@ -8,6 +8,7 @@ export 'card.dart';
 export 'empty_state.dart';
 export 'heading.dart';
 export 'list_row.dart';
+export 'redirect_confirm_popup.dart';
 export 'resource_card.dart';
 export 'screen_container.dart';
 export 'search_input.dart';

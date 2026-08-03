@@ -106,6 +106,10 @@ class ResourceRow extends StatelessWidget {
   final String title;
   final String? subtitle;
   final VoidCallback? onTap;
+
+  /// When true, trailing affordance is a tilted external-link arrow instead
+  /// of the in-app chevron — for rows that leave the app (url_launcher).
+  final bool opensExternally;
   final AppAccent accent;
 
   const ResourceRow({
@@ -114,6 +118,7 @@ class ResourceRow extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.onTap,
+    this.opensExternally = false,
     this.accent = AppAccent.brand,
   });
 
@@ -162,7 +167,11 @@ class ResourceRow extends StatelessWidget {
           ),
           if (onTap != null) ...[
             const SizedBox(width: AppSpacing.ms),
-            Icon(LucideIcons.chevron_right, size: 18, color: colors.icon),
+            Icon(
+              opensExternally ? LucideIcons.external_link : LucideIcons.chevron_right,
+              size: 18,
+              color: colors.icon,
+            ),
           ],
         ],
       ),

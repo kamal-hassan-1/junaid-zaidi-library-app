@@ -25,6 +25,10 @@ class ListRow extends StatelessWidget {
   final String? secondaryLabel;
   final VoidCallback? onTap;
   final bool showChevron;
+
+  /// When true, trailing affordance is a tilted external-link arrow instead
+  /// of the in-app chevron — for rows that leave the app (url_launcher).
+  final bool opensExternally;
   final Widget? badge;
   final bool showDivider;
   final AppAccent? accent;
@@ -37,6 +41,7 @@ class ListRow extends StatelessWidget {
     this.secondaryLabel,
     this.onTap,
     this.showChevron = true,
+    this.opensExternally = false,
     this.badge,
     this.showDivider = true,
     this.accent,
@@ -102,7 +107,11 @@ class ListRow extends StatelessWidget {
           ],
           if (onTap != null && showChevron) ...[
             const SizedBox(width: AppSpacing.ms),
-            Icon(LucideIcons.chevron_right, size: 18, color: colors.icon),
+            Icon(
+              opensExternally ? LucideIcons.external_link : LucideIcons.chevron_right,
+              size: 18,
+              color: colors.icon,
+            ),
           ],
         ],
       ),

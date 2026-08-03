@@ -24,6 +24,16 @@ class ContactUsScreen extends StatelessWidget {
   Future<void> _open(String url) =>
       launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
 
+  /// Confirms with [message], then runs [action] only if the user continues.
+  Future<void> _confirmThen(
+    BuildContext context, {
+    required String message,
+    required Future<void> Function() action,
+  }) async {
+    final confirmed = await showRedirectConfirmPopup(context, message: message);
+    if (confirmed) await action();
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = useTheme(context);
@@ -52,14 +62,24 @@ class ContactUsScreen extends StatelessWidget {
               label: 'Phone',
               secondaryLabel: _phone,
               accent: AppAccent.success,
-              onTap: () => _open('tel:$_phone'),
+              opensExternally: true,
+              onTap: () => _confirmThen(
+                context,
+                message: 'This will open your phone dialer to call the library.',
+                action: () => _open('tel:$_phone'),
+              ),
             ),
             ListRow(
               faIcon: FontAwesomeIcons.envelope,
               label: 'Email',
               secondaryLabel: _email,
               accent: AppAccent.warning,
-              onTap: () => _open('mailto:$_email'),
+              opensExternally: true,
+              onTap: () => _confirmThen(
+                context,
+                message: 'This will open your email app to message the library.',
+                action: () => _open('mailto:$_email'),
+              ),
               showDivider: false,
             ),
           ]),
@@ -75,14 +95,26 @@ class ContactUsScreen extends StatelessWidget {
               label: 'Facebook',
               secondaryLabel: 'LIS.CIIT.Islamabad',
               accent: AppAccent.brand,
-              onTap: () => _open(_facebookUrl),
+              opensExternally: true,
+              onTap: () => _confirmThen(
+                context,
+                message:
+                    'This will open the library’s Facebook page in your browser.',
+                action: () => _open(_facebookUrl),
+              ),
             ),
             ListRow(
               faIcon: FontAwesomeIcons.xTwitter,
               label: 'Twitter / X',
               secondaryLabel: '@zaidilibrary',
               accent: AppAccent.brand,
-              onTap: () => _open(_twitterUrl),
+              opensExternally: true,
+              onTap: () => _confirmThen(
+                context,
+                message:
+                    'This will open the library’s X (Twitter) page in your browser.',
+                action: () => _open(_twitterUrl),
+              ),
               showDivider: false,
             ),
           ]),

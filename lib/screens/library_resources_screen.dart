@@ -14,9 +14,13 @@ import 'opac.dart';
 class LibraryResourcesScreen extends StatelessWidget {
   const LibraryResourcesScreen({super.key});
 
-  Future<void> _openWebsite(String url) async {
-    final uri = Uri.parse(url);
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  Future<void> _openWebsite(BuildContext context, String url) async {
+    final confirmed = await showRedirectConfirmPopup(
+      context,
+      message: kLibraryWebsiteRedirectMessage,
+    );
+    if (!confirmed) return;
+    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
 
   void _openOpac(BuildContext context) {
@@ -43,14 +47,16 @@ class LibraryResourcesScreen extends StatelessWidget {
             Builder(
               builder: (context) {
                 final resource = libraryResourceLinks[i];
+                final isOpac = resource.title == 'OPAC';
                 return ResourceRow(
                   icon: resource.icon,
                   title: resource.title,
                   subtitle: resource.subtitle,
                   accent: resource.accent,
-                  onTap: resource.title == 'OPAC'
+                  opensExternally: !isOpac,
+                  onTap: isOpac
                       ? () => _openOpac(context)
-                      : () => _openWebsite(resource.url),
+                      : () => _openWebsite(context, resource.url),
                 );
               },
             ),
