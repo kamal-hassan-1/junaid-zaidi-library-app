@@ -9,6 +9,7 @@ import '../../theme/semantic/light.dart';
 import '../../theme/theme.dart';
 import '../../widgets/ui.dart';
 import '../root_shell.dart';
+import '../splash_screen.dart';
 import 'email_login_screen.dart';
 import 'signup_form_screen.dart';
 import 'welcome_screen.dart';
@@ -61,10 +62,15 @@ class _AuthGateState extends State<AuthGate> {
   /// the safest move is to clear both and force a clean re-login rather
   /// than silently trusting a half-authenticated state.
   Future<void> _checkSession() async {
+    // Started before the checks, not awaited until after them, so the splash's
+    // minimum on-screen time overlaps the session work instead of adding to it.
+    final minimumSplash = Future<void>.delayed(SplashScreen.minimumDuration);
+
     final hasKohaSession = await _kohaAuth.isLoggedIn();
     final hasFirebaseSession = _firebaseAuth.currentUser != null;
 
     if (hasKohaSession && hasFirebaseSession) {
+      await minimumSplash;
       if (mounted) setState(() => _state = _AuthState.authenticated);
       return;
     }
@@ -75,6 +81,7 @@ class _AuthGateState extends State<AuthGate> {
     }
 
     final isGuest = await _secureStorage.isGuestMode();
+    await minimumSplash;
     if (mounted) setState(() => _state = isGuest ? _AuthState.guest : _AuthState.signedOut);
   }
 
@@ -125,7 +132,7 @@ class _AuthGateState extends State<AuthGate> {
   Widget build(BuildContext context) {
     switch (_state) {
       case _AuthState.loading:
-        return const _AuthLoadingScreen();
+        return const SplashScreen();
       case _AuthState.authenticated:
         return AuthScope(onLogout: _handleLogout, isGuest: false, child: const RootShell());
       case _AuthState.guest:
@@ -136,20 +143,6 @@ class _AuthGateState extends State<AuthGate> {
           onGenerateRoute: _onGenerateAuthRoute,
         );
     }
-  }
-}
-
-class _AuthLoadingScreen extends StatelessWidget {
-  const _AuthLoadingScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = useTheme(context);
-    return ScreenContainer(
-      child: Center(
-        child: CircularProgressIndicator(color: colors.brand),
-      ),
-    );
   }
 }
 

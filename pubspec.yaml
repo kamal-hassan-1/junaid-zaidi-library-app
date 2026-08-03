@@ -56,6 +56,7 @@ dependencies:
 
 dev_dependencies:
   flutter_launcher_icons: ^0.14.3
+  flutter_native_splash: ^2.4.6
   flutter_test:
     sdk: flutter
 
@@ -155,7 +156,29 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+# Launcher icon is generated from the COMSATS crest (assets/logo.png).
+# The two source PNGs below are produced by tool/generate_icons.ps1 — edit the
+# logo and re-run that script rather than hand-editing them.
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: "assets/icon/app_icon.jpeg"
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+
+# Native launch screen shown by Android before the Flutter engine is ready.
+# White background so it hands off seamlessly to SplashScreen, which continues
+# the same crest-on-light composition while Firebase/session checks run.
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: "assets/icon/splash_logo.png"
+  color_dark: "#FFFFFF"
+  image_dark: "assets/icon/splash_logo.png"
+  android: true
+  ios: false
+  web: false
+  android_12:
+    image: "assets/icon/splash_logo_android12.png"
+    icon_background_color: "#FFFFFF"
+    image_dark: "assets/icon/splash_logo_android12.png"
+    icon_background_color_dark: "#FFFFFF"
