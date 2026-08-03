@@ -12,6 +12,7 @@ class SearchInput extends StatefulWidget {
   final String value;
   final ValueChanged<String> onChanged;
   final VoidCallback? onClear;
+  final ValueChanged<String>? onSubmitted;
   final String placeholder;
   final bool isSearching;
 
@@ -20,6 +21,7 @@ class SearchInput extends StatefulWidget {
     required this.value,
     required this.onChanged,
     this.onClear,
+    this.onSubmitted,
     this.placeholder = 'Search for books...',
     this.isSearching = false,
   });
@@ -90,6 +92,8 @@ class _SearchInputState extends State<SearchInput> {
               controller: _controller,
               focusNode: _focusNode,
               onChanged: widget.onChanged,
+              onSubmitted: widget.onSubmitted,
+              textInputAction: TextInputAction.search,
               style: AppTypography.bodyBase.toTextStyle(color: colors.text.primary),
               decoration: InputDecoration(
                 hintText: widget.placeholder,

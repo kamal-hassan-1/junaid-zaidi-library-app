@@ -5,6 +5,7 @@ import '../data/library_images.dart';
 import '../navigation/app_tab_scope.dart';
 import '../theme/theme.dart';
 import '../widgets/ui.dart';
+import 'opac.dart';
 
 /// Home tab: hero banner, search box, and the 2-column resource shortcut
 /// grid. Mirrors app/(tabs)/index.js.
@@ -17,6 +18,17 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String _query = '';
+
+  /// Opens the OPAC (catalog search) screen, pre-filled with [query] if
+  /// given, otherwise with whatever is currently typed in the search box.
+  void _openOpac([String? query]) {
+    final resolvedQuery = (query ?? _query).trim();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => OpacScreen(initialQuery: resolvedQuery),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -103,6 +115,7 @@ class _HomeScreenState extends State<HomeScreen> {
             value: _query,
             onChanged: (v) => setState(() => _query = v),
             onClear: () => setState(() => _query = ''),
+            onSubmitted: _openOpac,
             placeholder: 'Search for books...',
           ),
 
@@ -135,7 +148,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             accent: resource.accent,
                             onTap: resource.opensExploreSpaces
                                 ? () => AppTabScope.of(context).goToTab(AppTabs.exploreSpaces)
-                                : null,
+                                : resource.title == 'OPAC'
+                                    ? () => _openOpac()
+                                    : null,
                           ),
                         ),
                     ],
