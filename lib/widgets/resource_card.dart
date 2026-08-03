@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-
+import 'package:flutter_lucide/flutter_lucide.dart';
 import '../theme/theme.dart';
 import 'app_text.dart';
 import 'card.dart';
@@ -80,6 +80,79 @@ class ResourceCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+/// Library Resources screen's one-per-row shortcut card. Same visual
+/// anatomy as [ResourceCard] (accent icon chip, card surface, shadow) but
+/// laid out horizontally full-width instead of ~48%-width in a grid pair,
+/// since Library Resources shows each resource on its own row rather than
+/// a 2-column grid.
+class ResourceRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onTap;
+  final AppAccent accent;
+
+  const ResourceRow({
+    super.key,
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.onTap,
+    this.accent = AppAccent.brand,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = useTheme(context);
+    final accentColor = resolveAccent(colors, accent);
+
+    return AppCard(
+      onTap: onTap,
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+              color: withOpacity(accentColor, 0.12),
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, size: 20, color: accentColor),
+          ),
+          const SizedBox(width: AppSpacing.ms),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppText(
+                  title,
+                  variant: 'bodyBase',
+                  tone: 'primary',
+                  maxLines: 2,
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  AppText(
+                    subtitle!,
+                    variant: 'bodySmall',
+                    tone: 'secondary',
+                    maxLines: 1,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (onTap != null) ...[
+            const SizedBox(width: AppSpacing.ms),
+            Icon(LucideIcons.chevron_right, size: 18, color: colors.icon),
+          ],
+        ],
       ),
     );
   }

@@ -1,5 +1,6 @@
 /// Junaid Zaidi Library, COMSATS University Islamabad — Park Road, Islamabad.
-/// Coordinates sourced from public COMSATS/library location listings.
+/// Coordinates pinned directly on the actual library building via Google
+/// Maps (not the general campus centroid, which was the previous bug).
 class LibraryLocation {
   final String name;
   final String address;
@@ -17,8 +18,8 @@ class LibraryLocation {
 const LibraryLocation libraryLocation = LibraryLocation(
   name: 'Junaid Zaidi Library, COMSATS University Islamabad',
   address: 'Park Road, Tarlai Kalan, Islamabad 45550, Pakistan',
-  latitude: 33.651592,
-  longitude: 73.156456,
+  latitude: 33.649362,
+  longitude: 73.154569,
 );
 
 String googleMapsUrl(LibraryLocation location) =>

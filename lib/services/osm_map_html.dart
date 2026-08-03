@@ -20,7 +20,10 @@ String buildOsmMapHtml({
         margin-top: 6px;
         padding: 6px 12px;
         background: #1D4ED8; /* Base 700 — brand blue */
-        color: #fff;
+        color: #fff !important; /* !important: Leaflet's own
+          .leaflet-popup-content a rule is more specific than a bare
+          class selector, so without this the button text silently
+          renders in Leaflet's default link color instead of white. */
         border-radius: 999px;
         font-family: -apple-system, sans-serif;
         font-size: 13px;
@@ -40,7 +43,7 @@ String buildOsmMapHtml({
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
       var map = L.map('map', { zoomControl: true }).setView([$latitude, $longitude], 16);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
         attribution: '&copy; OpenStreetMap contributors'
       }).addTo(map);
 

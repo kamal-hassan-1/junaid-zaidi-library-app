@@ -6,8 +6,9 @@ import '../theme/accents.dart';
 
 /// Static "More" tab menu, grouped into sections. Items without a
 /// `routeName` are intentionally inert per the project brief ("does
-/// nothing on click" for Contact Us, Event Calendar, Junaid Zaidi Gallery)
-/// and are rendered with a "Coming soon" badge instead of navigation.
+/// nothing on click" for Event Calendar, Junaid Zaidi Gallery) and are
+/// rendered with a "Coming soon" badge instead of navigation. Contact Us
+/// now routes to ContactUsScreen instead of being inert.
 /// `accent` names a semantic color used to tint each item's icon chip,
 /// purely for visual categorization — not a status signal.
 enum MoreMenuSection { library, community }
@@ -59,7 +60,7 @@ final List<MoreMenuItem> moreMenu = [
     key: 'contact',
     label: 'Contact Us',
     icon: LucideIcons.phone,
-    routeName: null,
+    routeName: MoreRoutes.contact,
     section: MoreMenuSection.community,
     accent: AppAccent.error,
   ),

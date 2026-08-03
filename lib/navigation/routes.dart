@@ -6,6 +6,7 @@ class MoreRoutes {
   static const String changePassword = '/more/change-password';
   static const String guides = '/more/guides';
   static const String map = '/more/map';
+  static const String contact = '/more/contact';
   static const String about = '/more/about';
   static const String aboutFacts = '/more/about/facts';
   static const String aboutRules = '/more/about/rules';

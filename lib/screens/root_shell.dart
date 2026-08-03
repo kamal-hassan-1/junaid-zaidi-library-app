@@ -12,6 +12,7 @@ import 'more/about/facts_screen.dart';
 import 'more/about/floor_plan_screen.dart';
 import 'more/about/rules_screen.dart';
 import 'more/about/staff_screen.dart';
+import 'more/contact_us_screen.dart';
 import 'more/guides_screen.dart';
 import 'more/map_screen.dart';
 import 'more/more_screen.dart';
@@ -44,6 +45,7 @@ class _RootShellState extends State<RootShell> {
     MoreRoutes.changePassword: 'Request Password Change',
     MoreRoutes.guides: 'Guides & Documentation',
     MoreRoutes.map: 'Junaid Zaidi on Maps',
+    MoreRoutes.contact: 'Contact Us',
     MoreRoutes.about: 'About',
     MoreRoutes.aboutFacts: 'Facts',
     MoreRoutes.aboutRules: 'Rules & Regulations',
@@ -62,6 +64,8 @@ class _RootShellState extends State<RootShell> {
         page = const GuidesScreen();
       case MoreRoutes.map:
         page = const MapScreen();
+      case MoreRoutes.contact:
+        page = const ContactUsScreen();
       case MoreRoutes.about:
         page = const AboutScreen();
       case MoreRoutes.aboutFacts:
@@ -81,9 +85,9 @@ class _RootShellState extends State<RootShell> {
     final wrapped = title == null
         ? page
         : Scaffold(
-            appBar: AppBar(title: Text(title)),
-            body: page,
-          );
+      appBar: AppBar(title: Text(title)),
+      body: page,
+    );
     return MaterialPageRoute(builder: (_) => wrapped, settings: settings);
   }
 
