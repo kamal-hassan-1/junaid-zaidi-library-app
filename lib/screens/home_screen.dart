@@ -134,26 +134,28 @@ class _HomeScreenState extends State<HomeScreen> {
                   rows.add(const SizedBox(height: AppSpacing.md));
                 }
                 rows.add(
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (final resource in pair)
-                        SizedBox(
-                          width: cardWidth,
-                          child: ResourceCard(
-                            icon: resource.icon,
-                            title: resource.title,
-                            subtitle: resource.subtitle,
-                            accent: resource.accent,
-                            onTap: resource.opensExploreSpaces
-                                ? () => AppTabScope.of(context).goToTab(AppTabs.exploreSpaces)
-                                : resource.title == 'OPAC'
-                                    ? () => _openOpac()
-                                    : null,
+                  IntrinsicHeight(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final resource in pair)
+                          SizedBox(
+                            width: cardWidth,
+                            child: ResourceCard(
+                              icon: resource.icon,
+                              title: resource.title,
+                              subtitle: resource.subtitle,
+                              accent: resource.accent,
+                              onTap: resource.opensExploreSpaces
+                                  ? () => AppTabScope.of(context).goToTab(AppTabs.exploreSpaces)
+                                  : resource.title == 'OPAC'
+                                      ? () => _openOpac()
+                                      : null,
+                            ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 );
               }

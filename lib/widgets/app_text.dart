@@ -12,6 +12,7 @@ class AppText extends StatelessWidget {
   final String tone;
   final TextStyle? style;
   final int? maxLines;
+  final TextOverflow? overflow;
   final TextAlign? textAlign;
   final String? semanticsLabel;
 
@@ -22,6 +23,7 @@ class AppText extends StatelessWidget {
     this.tone = 'primary',
     this.style,
     this.maxLines,
+    this.overflow,
     this.textAlign,
     this.semanticsLabel,
   });
@@ -60,6 +62,7 @@ class AppText extends StatelessWidget {
       text,
       style: resolvedStyle,
       maxLines: maxLines,
+      overflow: overflow ?? (maxLines != null ? TextOverflow.ellipsis : null),
       textAlign: textAlign,
       semanticsLabel: semanticsLabel,
     );

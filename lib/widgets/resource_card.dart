@@ -60,21 +60,33 @@ class ResourceCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  AppText(
-                    title,
-                    variant: 'bodyBase',
-                    tone: 'primary',
-                    maxLines: 2,
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: AppSpacing.xs),
-                    AppText(
-                      subtitle!,
-                      variant: 'bodySmall',
-                      tone: 'secondary',
-                      maxLines: 1,
+                  // Always reserve two bodyBase lines so a short title (OPAC)
+                  // matches a wrapping one (HEC E-Books Library).
+                  SizedBox(
+                    height: AppTypography.bodyBase.lineHeight * 2,
+                    width: double.infinity,
+                    child: AppText(
+                      title,
+                      variant: 'bodyBase',
+                      tone: 'primary',
+                      maxLines: 2,
                     ),
-                  ],
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  // Always reserve one bodySmall line, even when subtitle is
+                  // null, so every card stays the same height.
+                  SizedBox(
+                    height: AppTypography.bodySmall.lineHeight,
+                    width: double.infinity,
+                    child: subtitle == null
+                        ? null
+                        : AppText(
+                            subtitle!,
+                            variant: 'bodySmall',
+                            tone: 'secondary',
+                            maxLines: 1,
+                          ),
+                  ),
                 ],
               ),
             ),
