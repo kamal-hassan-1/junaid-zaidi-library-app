@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 
-import '../../data/library_images.dart';
 import '../../data/more_menu.dart';
 import '../../models/profile_data.dart';
 import '../../navigation/auth_scope.dart';
@@ -84,8 +83,6 @@ class _MoreScreenState extends State<MoreScreen> {
 
     return ScreenContainer(
       scroll: true,
-      backgroundImage: const AssetImage(homeBackgroundImagePath),
-      backgroundImageOpacity: 0.05,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

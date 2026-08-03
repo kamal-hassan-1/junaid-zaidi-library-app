@@ -53,7 +53,11 @@ class ScreenContainer extends StatelessWidget {
         right: true,
         bottom: false,
         child: backgroundImage != null
+            // StackFit.expand so the photo fills the viewport even when the
+            // scroll child is shorter than the screen (default loose fit
+            // shrink-wraps to content height and clips the bg with it).
             ? Stack(
+                fit: StackFit.expand,
                 children: [
                   Positioned.fill(
                     child: Opacity(
@@ -61,7 +65,7 @@ class ScreenContainer extends StatelessWidget {
                       child: Image(image: backgroundImage!, fit: BoxFit.cover),
                     ),
                   ),
-                  scroll ? content : Positioned.fill(child: content),
+                  content,
                 ],
               )
             : content,
