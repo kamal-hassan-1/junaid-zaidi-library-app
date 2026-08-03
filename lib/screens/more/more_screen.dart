@@ -87,7 +87,7 @@ class _MoreScreenState extends State<MoreScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Padding(
-            padding: EdgeInsets.only(bottom: AppSpacing.sm),
+            padding: EdgeInsets.only(bottom: AppSpacing.ms),
             child: Heading(level: 5, tone: 'tertiary', text: 'Patron Profile'),
           ),
           Padding(
@@ -104,7 +104,7 @@ class _MoreScreenState extends State<MoreScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.ms),
                     child: Heading(
                       level: 5,
                       tone: 'tertiary',
@@ -115,11 +115,17 @@ class _MoreScreenState extends State<MoreScreen> {
                 ],
               ),
             ),
-          const AppText(
-            'Junaid Zaidi Library - v1.0.0',
-            variant: 'caption',
-            tone: 'tertiary',
-            textAlign: TextAlign.center,
+          const Padding(
+            padding: EdgeInsets.only(top: AppSpacing.lg),
+            child: SizedBox(
+              width: double.infinity,
+              child: AppText(
+                'Junaid Zaidi Library - v1.0.0',
+                variant: 'caption',
+                tone: 'tertiary',
+                textAlign: TextAlign.center,
+              ),
+            ),
           ),
         ],
       ),
