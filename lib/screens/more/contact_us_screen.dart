@@ -33,15 +33,6 @@ class ContactUsScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Heading(level: 4, text: 'Junaid Zaidi Library'),
-          const SizedBox(height: AppSpacing.xs),
-          const AppText(
-            'COMSATS University Islamabad',
-            variant: 'bodyBase',
-            tone: 'secondary',
-          ),
-          const SizedBox(height: AppSpacing.lg),
-
           Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.sm),
             child: Heading(level: 5, tone: 'tertiary', text: 'Get in touch'),
