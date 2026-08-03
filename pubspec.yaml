@@ -171,9 +171,9 @@ flutter_launcher_icons:
 # the same crest-on-light composition while Firebase/session checks run.
 flutter_native_splash:
   color: "#FFFFFF"
-  image: "assets/icon/splash_logo.png"
+  image: "assets/logo.png"
   color_dark: "#FFFFFF"
-  image_dark: "assets/icon/splash_logo.png"
+  image_dark: "assets/logo.png"
   android: true
   ios: false
   web: false

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/library_images.dart';
 import '../theme/theme.dart';
 import '../widgets/ui.dart';
 
@@ -71,7 +72,7 @@ class _SplashScreenState extends State<SplashScreen>
                     border: shadow.border,
                     boxShadow: shadow.boxShadow,
                   ),
-                  child: Image.asset('assets/logo.png', fit: BoxFit.contain),
+                  child: Image.asset(logoImagePath, fit: BoxFit.contain),
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
