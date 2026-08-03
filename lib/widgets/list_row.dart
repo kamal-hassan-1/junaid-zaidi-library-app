@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../theme/theme.dart';
 import 'app_text.dart';
@@ -16,6 +17,10 @@ import 'app_text.dart';
 /// per-item color categorization.
 class ListRow extends StatelessWidget {
   final IconData? icon;
+
+  /// Font Awesome alternative to [icon]. Kept separate because Font Awesome
+  /// glyphs are often non-square and need [FaIcon] to avoid clipping.
+  final FaIconData? faIcon;
   final String label;
   final String? secondaryLabel;
   final VoidCallback? onTap;
@@ -27,6 +32,7 @@ class ListRow extends StatelessWidget {
   const ListRow({
     super.key,
     this.icon,
+    this.faIcon,
     required this.label,
     this.secondaryLabel,
     this.onTap,
@@ -35,6 +41,11 @@ class ListRow extends StatelessWidget {
     this.showDivider = true,
     this.accent,
   });
+
+  Widget _buildIcon({required double size, required Color color}) =>
+      faIcon != null
+      ? FaIcon(faIcon!, size: size, color: color)
+      : Icon(icon, size: size, color: color);
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +64,7 @@ class ListRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          if (icon != null) ...[
+          if (icon != null || faIcon != null) ...[
             if (accentColor != null)
               Container(
                 width: 36,
@@ -63,12 +74,12 @@ class ListRow extends StatelessWidget {
                   color: withOpacity(accentColor, 0.12),
                 ),
                 alignment: Alignment.center,
-                child: Icon(icon, size: 18, color: accentColor),
+                child: _buildIcon(size: 18, color: accentColor),
               )
             else
               SizedBox(
                 width: AppSpacing.lg,
-                child: Icon(icon, size: 20, color: colors.icon),
+                child: _buildIcon(size: 20, color: colors.icon),
               ),
             const SizedBox(width: AppSpacing.ms),
           ],

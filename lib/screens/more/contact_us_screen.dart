@@ -64,7 +64,7 @@ class ContactUsScreen extends StatelessWidget {
               onTap: () => _open('tel:$_phone'),
             ),
             ListRow(
-              icon: FontAwesomeIcons.envelope,
+              faIcon: FontAwesomeIcons.envelope,
               label: 'Email',
               secondaryLabel: _email,
               accent: AppAccent.warning,
@@ -80,14 +80,14 @@ class ContactUsScreen extends StatelessWidget {
           ),
           groupedList(colors, [
             ListRow(
-              icon: FontAwesomeIcons.facebook,
+              faIcon: FontAwesomeIcons.facebook,
               label: 'Facebook',
               secondaryLabel: 'LIS.CIIT.Islamabad',
               accent: AppAccent.brand,
               onTap: () => _open(_facebookUrl),
             ),
             ListRow(
-              icon: FontAwesomeIcons.xTwitter,
+              faIcon: FontAwesomeIcons.xTwitter,
               label: 'Twitter / X',
               secondaryLabel: '@zaidilibrary',
               accent: AppAccent.brand,

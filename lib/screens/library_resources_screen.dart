@@ -4,7 +4,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/library_images.dart';
 import '../data/library_resource_links.dart';
 import '../theme/theme.dart';
-import '../widgets/resource_card.dart';
 import '../widgets/ui.dart';
 
 /// Library Resources tab: the same 6 items as the "Explore Resources"
