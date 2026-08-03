@@ -13,7 +13,7 @@ class ExploreSpacesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return const ScreenContainer(
       backgroundImage: AssetImage(homeBackgroundImagePath),
-      backgroundImageOpacity: 0.2,
+      backgroundImageOpacity: 0.05,
       child: EmptyState(
         icon: LucideIcons.compass,
         title: 'Explore Spaces',
