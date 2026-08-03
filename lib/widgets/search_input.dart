@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../theme/theme.dart';
+import 'card.dart';
 
 /// Search Input variant: pill container, leading search icon, trailing
 /// clear (X) or loading spinner.
@@ -70,10 +71,14 @@ class _SearchInputState extends State<SearchInput> {
   @override
   Widget build(BuildContext context) {
     final colors = useTheme(context);
+    final shadow = cardShadowDecoration(colors);
 
+    // White (light) / tertiary (dark) fill + always-on border so the bar
+    // separates from ScreenContainer's primary bg and faint photo wash.
+    // Transparent-border + secondary fill used to dissolve into gray-50.
     final backgroundColor =
-        colors.isDark ? colors.background.tertiary : colors.background.secondary;
-    final borderColor = _isFocused ? colors.text.primary : const Color(0x00000000);
+        colors.isDark ? colors.background.tertiary : const Color(0xFFFFFFFF);
+    final borderColor = _isFocused ? colors.brand : colors.border;
 
     return Container(
       height: 48,
@@ -82,6 +87,7 @@ class _SearchInputState extends State<SearchInput> {
         color: backgroundColor,
         borderRadius: BorderRadius.circular(AppRadius.full),
         border: Border.all(color: borderColor, width: 1),
+        boxShadow: shadow.boxShadow,
       ),
       child: Row(
         children: [
