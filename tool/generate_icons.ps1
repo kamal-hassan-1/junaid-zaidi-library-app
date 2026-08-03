@@ -46,11 +46,12 @@ New-Composite -OutFile (Join-Path $outDir 'app_icon.png') -Canvas 1024 -LogoSize
 # so the launcher's circle/squircle mask never clips the "ISLAMABAD" banner.
 New-Composite -OutFile (Join-Path $outDir 'app_icon_foreground.png') -Canvas 1024 -LogoSize 596
 
-# Android 12+ splash icon: 1152 canvas, artwork inside the inner 768 circle.
-New-Composite -OutFile (Join-Path $outDir 'splash_logo_android12.png') -Canvas 1152 -LogoSize 660
+# Android 12+ splash icon. Canvas is filled with #F8F9FA (not transparent) so
+# OEMs that ignore windowSplashScreenBackground (notably MIUI) still show a
+# light plate behind the crest instead of the system dark wallpaper.
+# Logo stays inside the 768px safe circle (~66% of 1152).
+New-Composite -OutFile (Join-Path $outDir 'splash_logo_android12.png') -Canvas 1152 -LogoSize 660 -BackgroundHex '#F8F9FA'
 
-# Pre-Android-12 splash image. flutter_native_splash treats the source as the
-# 4x (xxxhdpi) asset, so this 528px canvas lands at 132 logical px with the
-# crest at 100 — exactly the tile size SplashScreen draws, which keeps the crest
-# from visibly resizing when the native screen hands off to the Flutter one.
-New-Composite -OutFile (Join-Path $outDir 'splash_logo.png') -Canvas 528 -LogoSize 400
+# Pre-Android-12 splash. Treated as xxxhdpi by flutter_native_splash → 132dp,
+# matching SplashScreen.logoSize so the crest does not resize on handoff.
+New-Composite -OutFile (Join-Path $outDir 'splash_logo.png') -Canvas 528 -LogoSize 528
