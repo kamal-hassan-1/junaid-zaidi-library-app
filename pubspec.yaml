@@ -168,18 +168,13 @@ flutter_launcher_icons:
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
 
-# Native splash uses the transparent crest (assets/logo.png) only.
-# Android 12+ SplashScreen API cannot render titles/cards — only a circular
-# icon — so the full branded layout (card + "Junaid Zaidi Library" + subtitle)
-# lives in lib/screens/splash_screen.dart and takes over on the first Flutter
-# frame via FlutterNativeSplash.remove().
-#
-# Light / dark colors follow the app gray-50 / gray-950 plates. Do NOT bake a
-# light fill into the Android 12 PNG or dark mode shows a white plate.
+# Native OS splash only (no Flutter splash screen). Transparent crest:
+# assets/logo.png. Android 12+ is limited to bg color + circular icon.
+# Do NOT bake a light fill into the Android 12 PNG (white plate in dark mode).
 #
 # After `dart run flutter_native_splash:create`, re-check
-# android/app/src/main/res/values-night*/styles.xml for Theme.Light +
-# @color/splash_background if the generator rewrites them to Theme.Black.
+# android/app/src/main/res/values-night*/styles.xml if the generator
+# rewrites them.
 flutter_native_splash:
   color: "#F8F9FA"
   image: "assets/logo.png"

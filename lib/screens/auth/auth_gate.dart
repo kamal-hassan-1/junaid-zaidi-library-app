@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 import '../../navigation/auth_scope.dart';
 import '../../navigation/routes.dart';
@@ -9,7 +10,6 @@ import '../../theme/semantic/light.dart';
 import '../../theme/theme.dart';
 import '../../widgets/ui.dart';
 import '../root_shell.dart';
-import '../splash_screen.dart';
 import 'email_login_screen.dart';
 import 'signup_form_screen.dart';
 import 'welcome_screen.dart';
@@ -17,9 +17,9 @@ import 'welcome_screen.dart';
 enum _AuthState { loading, authenticated, guest, signedOut }
 
 /// Decides between the auth flow and the app itself. Four states:
-///  - loading: still checking on boot — shows [SplashScreen] (branded card +
-///    titles). Native OS splash is crest-only; SplashScreen removes it on
-///    first frame so the full design takes over immediately.
+///  - loading: still checking on boot — native OS splash is removed on the
+///    first Flutter frame; if session restore is still running, only a
+///    centered spinner is shown (no branded Flutter splash).
 ///  - authenticated: BOTH a Koha session AND a Firebase session exist —
 ///    see _checkSession below for why "both" is required, not either.
 ///  - guest: no account, browsing anonymously. Persists across restarts
@@ -82,6 +82,8 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   void _finishLoading(_AuthState next) {
+    // Native splash may already be gone (removed on first frame).
+    FlutterNativeSplash.remove();
     if (mounted) setState(() => _state = next);
   }
 
@@ -132,7 +134,7 @@ class _AuthGateState extends State<AuthGate> {
   Widget build(BuildContext context) {
     switch (_state) {
       case _AuthState.loading:
-        return const SplashScreen();
+        return const _BootLoadingScreen();
       case _AuthState.authenticated:
         return AuthScope(onLogout: _handleLogout, isGuest: false, child: const RootShell());
       case _AuthState.guest:
@@ -143,6 +145,43 @@ class _AuthGateState extends State<AuthGate> {
           onGenerateRoute: _onGenerateAuthRoute,
         );
     }
+  }
+}
+
+/// Shown only after the native OS splash is dismissed, if session restore
+/// is still in progress. Logo/titles live on the native splash only.
+class _BootLoadingScreen extends StatefulWidget {
+  const _BootLoadingScreen();
+
+  @override
+  State<_BootLoadingScreen> createState() => _BootLoadingScreenState();
+}
+
+class _BootLoadingScreenState extends State<_BootLoadingScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      FlutterNativeSplash.remove();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = useTheme(context);
+    return Scaffold(
+      backgroundColor: colors.background.primary,
+      body: Center(
+        child: SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.5,
+            color: colors.brand,
+          ),
+        ),
+      ),
+    );
   }
 }
 

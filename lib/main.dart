@@ -9,9 +9,8 @@ import 'theme/semantic/light.dart';
 import 'theme/theme.dart';
 
 void main() async {
-  // Preserve the native crest splash until SplashScreen's first frame calls
-  // remove() and shows the full branded layout (card + titles). Android 12+
-  // cannot paint that layout natively.
+  // Keep the native OS splash until Flutter's first frame, then remove it.
+  // If session restore is still running, AuthGate shows a spinner only.
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
