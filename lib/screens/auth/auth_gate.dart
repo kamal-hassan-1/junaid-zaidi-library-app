@@ -1,38 +1,51 @@
 import 'package:flutter/material.dart';
 
+import '../../models/student_request.dart';
 import '../../navigation/auth_scope.dart';
 import '../../navigation/routes.dart';
 import '../../services/firebase_auth_service.dart';
 import '../../services/koha_auth_service.dart';
 import '../../services/secure_storage_service.dart';
-import '../../theme/semantic/light.dart';
 import '../../theme/theme.dart';
 import '../../widgets/ui.dart';
 import '../root_shell.dart';
 import '../splash_screen.dart';
 import 'email_login_screen.dart';
+import 'role_selection_screen.dart';
 import 'signup_form_screen.dart';
+import 'staff_signup_form_screen.dart';
 import 'welcome_screen.dart';
 
 enum _AuthState { loading, authenticated, guest, signedOut }
 
 /// Decides between the auth flow and the app itself. Four states:
 ///  - loading: still checking on boot.
-///  - authenticated: BOTH a Koha session AND a Firebase session exist —
+///  - authenticated: BOTH a Koha session AND a Firebase session exist â€”
 ///    see _checkSession below for why "both" is required, not either.
 ///  - guest: no account, browsing anonymously. Persists across restarts
 ///    the same way a real session does (see SecureStorageService's
-///    guest-mode flag) — a guest isn't re-prompted through Welcome every
+///    guest-mode flag) â€” a guest isn't re-prompted through Welcome every
 ///    launch.
-///  - signedOut: none of the above — shows the Welcome flow.
+///  - signedOut: none of the above â€” shows the Welcome flow.
 ///
 /// Updated Authentication Workflow, Phase 3: login_screen.dart (the old
-/// Koha-username-only screen) was deleted here, not just left unrouted —
+/// Koha-username-only screen) was deleted here, not just left unrouted â€”
 /// it was already dead code with zero callers before this phase (grep
 /// confirms nothing referenced it outside itself), and its username-only
 /// design directly conflicts with the dual email+password login the
 /// workflow doc specifies. EmailLoginScreen is now the one and only
 /// login path, doing both Firebase and Koha auth together.
+///
+/// Route pages built here that need to navigate onward (roleSelection,
+/// signupForm, staffSignupForm) do so with their OWN build context, not
+/// a callback closed over this State's `context` â€” this State sits
+/// above the nested auth Navigator built in `build()` below, so
+/// `Navigator.of(context)` from here resolves to the app's root
+/// Navigator instead of the nested one, and pushNamed calls for auth
+/// routes silently fail to find a generator. Only EmailLoginScreen and
+/// WelcomeScreen's guest button genuinely need a callback into this
+/// State, because flipping `_state` is something only this State can
+/// do â€” that's not a route navigation, so it's unaffected.
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -57,8 +70,8 @@ class _AuthGateState extends State<AuthGate> {
   /// requirement extends to session restore, not just the login
   /// moment): a valid restored session requires BOTH the Koha token
   /// (secure storage) AND a live Firebase session (persisted natively
-  /// by the Firebase SDK) to be present. If only one is found —
-  /// something crashed mid-login, storage was cleared by hand, etc —
+  /// by the Firebase SDK) to be present. If only one is found â€”
+  /// something crashed mid-login, storage was cleared by hand, etc â€”
   /// the safest move is to clear both and force a clean re-login rather
   /// than silently trusting a half-authenticated state.
   Future<void> _checkSession() async {
@@ -97,7 +110,7 @@ class _AuthGateState extends State<AuthGate> {
     setState(() => _state = _AuthState.guest);
   }
 
-  /// Exposed via AuthScope as `onLogout`. Doubles as "exit guest mode" —
+  /// Exposed via AuthScope as `onLogout`. Doubles as "exit guest mode" â€”
   /// clearing all three possible states (Koha token, Firebase session,
   /// guest flag) is harmless for whichever ones weren't actually active,
   /// and correctly returns either a real user or a guest to Welcome.
@@ -117,13 +130,28 @@ class _AuthGateState extends State<AuthGate> {
         page = WelcomeScreen(onContinueAsGuest: _handleContinueAsGuest);
       case AuthRoutes.emailLogin:
         page = EmailLoginScreen(onLoginSuccess: _handleAuthenticated);
+      case AuthRoutes.roleSelection:
+        page = const RoleSelectionScreen();
       case AuthRoutes.signupForm:
         page = const SignupFormScreen();
+      case AuthRoutes.staffSignupForm:
+        // Falls back to Staff if somehow reached without an argument â€”
+        // RoleSelectionScreen always passes one, but a route can in
+        // theory be pushed from elsewhere without it.
+        final role = settings.arguments as String? ?? RegistrationRole.staff;
+        page = StaffSignupFormScreen(role: role);
       default:
         page = const _ComingSoonScreen();
     }
     return MaterialPageRoute(
-      builder: (_) => Scaffold(backgroundColor: lightColors.background.primary, body: page),
+      // Was hardcoded to lightColors regardless of the device's actual
+      // theme â€” fine in light mode, but in dark mode it left a light
+      // Scaffold background showing through underneath any auth screen
+      // whose content (scroll: true, e.g. RoleSelectionScreen) doesn't
+      // fill the full viewport height. useTheme(context) resolves the
+      // theme that's actually active, matching every other screen.
+      builder: (context) =>
+          Scaffold(backgroundColor: useTheme(context).background.primary, body: page),
       settings: settings,
     );
   }

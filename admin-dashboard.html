@@ -232,6 +232,11 @@
         don't trust whatever is already sitting in either field after a reload, since only the
         Client ID (not the Secret) is remembered across sessions by design.
         <br><br>
+        <strong>Student vs Staff/Teacher use different Koha patron categories</strong> — set
+        both category codes below to match whatever you've named them in Koha (Administration
+        -&gt; Patron categories). Approving a Staff or Teacher request uses the second one; a
+        Student request still uses the first, exactly as before.
+        <br><br>
         <strong>Never paste your client secret into this file's source code.</strong> Type it
         in here at runtime instead — anyone who can read the HTML file (or a copy of it you
         share, e.g. to ask for help) can read a hardcoded value straight out of it.
@@ -242,8 +247,12 @@
           <input type="url" id="set-base-url" value="http://127.0.0.1:9090">
         </div>
         <div>
-          <label for="set-category">Patron category code</label>
+          <label for="set-category">Student patron category code</label>
           <input type="text" id="set-category" value="ST">
+        </div>
+        <div>
+          <label for="set-staff-category">Staff/Teacher patron category code</label>
+          <input type="text" id="set-staff-category" value="">
         </div>
         <div>
           <label for="set-branch">Library branch code</label>
@@ -327,16 +336,23 @@
   const settingsSaved = document.getElementById('settings-saved');
 
   // ------------------------------------------------------------------
-  // Koha connection settings — the 5 inputs above. The client secret is
+  // Koha connection settings — the inputs above. The client secret is
   // never written to localStorage; everything else is, so you don't
   // have to retype it every reload. RETYPE BOTH client ID and secret
   // TOGETHER whenever you generate a new key pair in Koha — the ID
   // alone persisting across reloads while the secret resets to blank
   // is what caused the "403 access_denied" mismatch earlier; don't
   // assume either field's current value is correct without checking.
+  //
+  // `category` is the Student patron category code, `staffCategory` is
+  // the separate one used for Staff/Teacher approvals (role-aware
+  // registration) — Koha category codes are specific to your instance,
+  // so this is never guessed at; leave staffCategory blank and
+  // approving a Staff/Teacher request will simply ask you to fill it
+  // in first, the same way a missing student category already does.
   // ------------------------------------------------------------------
   const koha = {
-    baseUrl: '', category: '', branch: '', clientId: '', clientSecret: '',
+    baseUrl: '', category: '', staffCategory: '', branch: '', clientId: '', clientSecret: '',
   };
 
   function loadSavedKohaSettings() {
@@ -344,6 +360,7 @@
       const saved = JSON.parse(localStorage.getItem('kohaDashboardSettings') || '{}');
       if (saved.baseUrl) document.getElementById('set-base-url').value = saved.baseUrl;
       if (saved.category) document.getElementById('set-category').value = saved.category;
+      if (saved.staffCategory) document.getElementById('set-staff-category').value = saved.staffCategory;
       if (saved.branch) document.getElementById('set-branch').value = saved.branch;
       if (saved.clientId) document.getElementById('set-client-id').value = saved.clientId;
     } catch (_) { /* ignore malformed/missing localStorage data */ }
@@ -353,6 +370,7 @@
   function readKohaSettingsFromForm() {
     koha.baseUrl = document.getElementById('set-base-url').value.trim().replace(/\/$/, '');
     koha.category = document.getElementById('set-category').value.trim();
+    koha.staffCategory = document.getElementById('set-staff-category').value.trim();
     koha.branch = document.getElementById('set-branch').value.trim();
     koha.clientId = document.getElementById('set-client-id').value.trim();
     koha.clientSecret = document.getElementById('set-client-secret').value;
@@ -365,7 +383,8 @@
   saveSettingsBtn.addEventListener('click', () => {
     readKohaSettingsFromForm();
     localStorage.setItem('kohaDashboardSettings', JSON.stringify({
-      baseUrl: koha.baseUrl, category: koha.category, branch: koha.branch, clientId: koha.clientId,
+      baseUrl: koha.baseUrl, category: koha.category, staffCategory: koha.staffCategory,
+      branch: koha.branch, clientId: koha.clientId,
       // clientSecret deliberately NOT persisted
     }));
     settingsSaved.style.display = 'inline';
@@ -467,19 +486,30 @@
   /// via a separate updateKohaPatronPassword() call right after,
   /// reusing the same PUT-based password endpoint the password-change
   /// flow already uses further down this file.
+  ///
+  /// Role-aware registration: `details.role` picks which of the two
+  /// configured patron categories to use (koha.category for Student,
+  /// koha.staffCategory for Staff/Teacher). `details.registrationNumber`
+  /// is only ever set for a Student — for Staff/Teacher it's
+  /// undefined, so `cardnumber` is left off the request body entirely
+  /// rather than sent as an empty string; Koha assigns/handles a blank
+  /// card number however your instance is configured to (autoMemberNum
+  /// or manual assignment later from the staff UI).
   async function createKohaPatron(accessToken, details) {
     const parts = details.fullName.trim().split(/\s+/);
     const firstname = parts[0] || details.fullName.trim();
     const surname = parts.length > 1 ? parts.slice(1).join(' ') : firstname;
 
+    const categoryId = details.role === 'Student' ? koha.category : koha.staffCategory;
+
     const body = {
-      category_id: koha.category,
+      category_id: categoryId,
       library_id: koha.branch,
       firstname, surname,
       email: details.email,
       userid: details.email,
-      cardnumber: details.registrationNumber,
     };
+    if (details.registrationNumber) body.cardnumber = details.registrationNumber;
     if (details.phone) body.mobile = details.phone;
     // Koha has no first-class "department"/"cnic" field out of the box.
     // If your instance has Patron Attribute Types for these
@@ -704,10 +734,25 @@
 
   async function handleApprove(requestId) {
     readKohaSettingsFromForm();
-    if (!koha.baseUrl || !koha.category || !koha.branch || !koha.clientId || !koha.clientSecret) {
+
+    // Role-aware registration: a Student approval needs koha.category
+    // filled in; a Staff/Teacher approval needs koha.staffCategory
+    // instead. password_change_requests never touches category_id at
+    // all (it only updates an existing patron's password), so it's
+    // exempt from this check entirely.
+    if (currentSection === 'student_requests') {
+      const doc = latestDocsById[requestId];
+      const role = doc ? (doc.data().role || 'Student') : 'Student';
+      const categoryOk = role === 'Student' ? !!koha.category : !!koha.staffCategory;
+      if (!koha.baseUrl || !koha.branch || !koha.clientId || !koha.clientSecret || !categoryOk) {
+        alert('Fill in Koha connection settings (top of page) before approving.');
+        return;
+      }
+    } else if (!koha.baseUrl || !koha.clientId || !koha.clientSecret) {
       alert('Fill in Koha connection settings (top of page) before approving.');
       return;
     }
+
     const approveBtn = document.getElementById(`approve-${requestId}`);
     const rejectBtn = document.getElementById(`reject-${requestId}`);
     if (approveBtn) approveBtn.disabled = true;
@@ -751,6 +796,12 @@
   // firebaseUid is already on the document (a previous attempt got
   // that far before failing on Koha), it's reused instead of trying to
   // create the account again.
+  //
+  // Role-aware registration: `role` (Student/Staff/Teacher) is read
+  // straight off the document and threaded through to
+  // createOrFindKohaPatron, which picks the matching Koha patron
+  // category. Firebase account creation itself doesn't change by
+  // role — every approved request gets one either way.
   // ------------------------------------------------------------------
   async function approveStudentRequest(requestId) {
     const doc = latestDocsById[requestId];
@@ -759,6 +810,7 @@
       throw new Error('No stored password on this request - it may already be approved.');
     }
 
+    const role = data.role || 'Student';
     const password = decryptPendingPassword(data.encryptedPassword, PENDING_PASSWORD_SECRET);
 
     let firebaseUid = data.firebaseUid;
@@ -778,6 +830,7 @@
 
     const accessToken = await getKohaAccessToken();
     const kohaPatron = await createOrFindKohaPatron(accessToken, {
+      role,
       fullName: data.fullName,
       email: data.email,
       registrationNumber: data.registrationNumber,
@@ -852,9 +905,16 @@
       </div>`;
   }
 
+  // Role-aware registration: registrationNumber/department/phone/cnic
+  // never exist on a Staff/Teacher document at all (see
+  // StudentRequest.toMap in the Flutter app) — showing them as "-" for
+  // those roles would read as "we lost this data" rather than "this
+  // role never collected it", so that whole row group is left out of
+  // the grid entirely for non-Student requests instead.
   function renderStudentRequestCard(doc) {
     const data = doc.data();
     const status = data.status || 'Pending';
+    const role = data.role || 'Student';
     const badgeClass = status.toLowerCase();
     const created = data.createdAt ? data.createdAt.toDate().toLocaleString() : '-';
     const actions = status === 'Pending'
@@ -866,20 +926,27 @@
     const borrowerRow = data.borrowerNumber
       ? `<div class="detail-item"><div class="detail-label">Koha Borrower #</div><div class="detail-value">${escapeHtml(data.borrowerNumber)}</div></div>`
       : '';
+    const studentOnlyRows = role === 'Student'
+      ? `
+        <div class="detail-item"><div class="detail-label">Registration #</div><div class="detail-value">${escapeHtml(data.registrationNumber || '-')}</div></div>
+        <div class="detail-item"><div class="detail-label">Department</div><div class="detail-value">${escapeHtml(data.department || '-')}</div></div>
+        <div class="detail-item"><div class="detail-label">Phone</div><div class="detail-value">${escapeHtml(data.phone || '-')}</div></div>
+        <div class="detail-item"><div class="detail-label">CNIC</div><div class="detail-value">${escapeHtml(data.cnic || '-')}</div></div>`
+      : '';
     return `
       <div class="request-card">
         <div class="request-top">
           <div>
             <p class="request-name">${escapeHtml(data.fullName || '-')}</p>
-            <p class="request-regnum">${escapeHtml(data.registrationNumber || '-')}</p>
+            <p class="request-regnum">${role === 'Student' ? escapeHtml(data.registrationNumber || '-') : escapeHtml(role)}</p>
           </div>
           <span class="badge ${badgeClass}">${escapeHtml(status)}</span>
         </div>
         <div class="detail-grid">
-          <div class="detail-item"><div class="detail-label">Department</div><div class="detail-value">${escapeHtml(data.department || '-')}</div></div>
+          <div class="detail-item"><div class="detail-label">Role</div><div class="detail-value">${escapeHtml(role)}</div></div>
+          <div class="detail-item"><div class="detail-label">Campus</div><div class="detail-value">${escapeHtml(data.campus || '-')}</div></div>
           <div class="detail-item"><div class="detail-label">Email</div><div class="detail-value">${escapeHtml(data.email || '-')}</div></div>
-          <div class="detail-item"><div class="detail-label">Phone</div><div class="detail-value">${escapeHtml(data.phone || '-')}</div></div>
-          <div class="detail-item"><div class="detail-label">CNIC</div><div class="detail-value">${escapeHtml(data.cnic || '-')}</div></div>
+          ${studentOnlyRows}
           <div class="detail-item"><div class="detail-label">Submitted</div><div class="detail-value">${created}</div></div>
           ${borrowerRow}
         </div>

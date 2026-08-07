@@ -20,13 +20,17 @@ class MoreRoutes {
 /// verifyEmail were removed here. The old three-screen signup
 /// (email -> verify -> form) belonged to the pre-approval-gated design
 /// where a temporary Firebase account existed to prove email ownership.
-/// The workflow this app now implements does registration in one
-/// screen with format-only validation and no account of any kind until
-/// a librarian approves the request — see signup_form_screen.dart.
+///
+/// Role-aware registration: `roleSelection` sits between
+/// "Create Account" and either form. It replaced a direct
+/// WelcomeScreen -> signupForm hop once registration needed to branch
+/// on Student vs Staff vs Teacher â€” see role_selection_screen.dart.
 class AuthRoutes {
   const AuthRoutes._();
 
   static const String welcome = '/auth/welcome';
   static const String emailLogin = '/auth/login/email';
+  static const String roleSelection = '/auth/signup/role';
   static const String signupForm = '/auth/signup/form';
+  static const String staffSignupForm = '/auth/signup/staff';
 }
