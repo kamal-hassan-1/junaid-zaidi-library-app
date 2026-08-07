@@ -5,21 +5,24 @@ import '../../navigation/auth_scope.dart';
 import '../../navigation/routes.dart';
 import '../../services/firebase_auth_service.dart';
 import '../../services/koha_auth_service.dart';
+import '../../services/onboarding_prefs.dart';
 import '../../services/secure_storage_service.dart';
 import '../../theme/semantic/light.dart';
 import '../../theme/theme.dart';
 import '../../widgets/ui.dart';
+import '../onboarding/onboarding_screen.dart';
 import '../root_shell.dart';
 import 'email_login_screen.dart';
 import 'signup_form_screen.dart';
 import 'welcome_screen.dart';
 
-enum _AuthState { loading, authenticated, guest, signedOut }
+enum _AuthState { loading, onboarding, authenticated, guest, signedOut }
 
-/// Decides between the auth flow and the app itself. Four states:
+/// Decides between the auth flow and the app itself. Five states:
 ///  - loading: still checking on boot — native OS splash is removed on the
 ///    first Flutter frame; if session restore is still running, only a
 ///    centered spinner is shown (no branded Flutter splash).
+///  - onboarding: first launch — [OnboardingScreen] until Get Started / Skip.
 ///  - authenticated: BOTH a Koha session AND a Firebase session exist —
 ///    see _checkSession below for why "both" is required, not either.
 ///  - guest: no account, browsing anonymously. Persists across restarts
@@ -46,8 +49,12 @@ class _AuthGateState extends State<AuthGate> {
   final _kohaAuth = KohaAuthService();
   final _firebaseAuth = FirebaseAuthService();
   final _secureStorage = SecureStorageService();
+  final _onboardingPrefs = OnboardingPrefs();
 
   _AuthState _state = _AuthState.loading;
+
+  /// Session outcome while onboarding may still need to run first.
+  _AuthState? _pendingAfterOnboarding;
 
   @override
   void initState() {
@@ -64,27 +71,48 @@ class _AuthGateState extends State<AuthGate> {
   /// the safest move is to clear both and force a clean re-login rather
   /// than silently trusting a half-authenticated state.
   Future<void> _checkSession() async {
-    final hasKohaSession = await _kohaAuth.isLoggedIn();
+    final results = await Future.wait([
+      _onboardingPrefs.isCompleted(),
+      _kohaAuth.isLoggedIn(),
+    ]);
+    final onboardingDone = results[0];
+    final hasKohaSession = results[1];
     final hasFirebaseSession = _firebaseAuth.currentUser != null;
 
+    late final _AuthState sessionState;
     if (hasKohaSession && hasFirebaseSession) {
-      _finishLoading(_AuthState.authenticated);
+      sessionState = _AuthState.authenticated;
+    } else {
+      if (hasKohaSession || hasFirebaseSession) {
+        await _kohaAuth.logout();
+        await _firebaseAuth.signOut();
+      }
+      final isGuest = await _secureStorage.isGuestMode();
+      sessionState = isGuest ? _AuthState.guest : _AuthState.signedOut;
+    }
+
+    if (!onboardingDone) {
+      _pendingAfterOnboarding = sessionState;
+      _finishLoading(_AuthState.onboarding);
       return;
     }
 
-    if (hasKohaSession || hasFirebaseSession) {
-      await _kohaAuth.logout();
-      await _firebaseAuth.signOut();
-    }
-
-    final isGuest = await _secureStorage.isGuestMode();
-    _finishLoading(isGuest ? _AuthState.guest : _AuthState.signedOut);
+    _finishLoading(sessionState);
   }
 
   void _finishLoading(_AuthState next) {
     // Native splash may already be gone (removed on first frame).
     FlutterNativeSplash.remove();
     if (mounted) setState(() => _state = next);
+  }
+
+  Future<void> _finishOnboarding() async {
+    await _onboardingPrefs.setCompleted();
+    if (!mounted) return;
+    setState(() {
+      _state = _pendingAfterOnboarding ?? _AuthState.signedOut;
+      _pendingAfterOnboarding = null;
+    });
   }
 
   /// Passed to EmailLoginScreen. Flips the gate over to RootShell once
@@ -135,6 +163,8 @@ class _AuthGateState extends State<AuthGate> {
     switch (_state) {
       case _AuthState.loading:
         return const _BootLoadingScreen();
+      case _AuthState.onboarding:
+        return OnboardingScreen(onFinished: _finishOnboarding);
       case _AuthState.authenticated:
         return AuthScope(onLogout: _handleLogout, isGuest: false, child: const RootShell());
       case _AuthState.guest:

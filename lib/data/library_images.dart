@@ -115,3 +115,10 @@ const String logoImagePath = 'assets/logo.png';
 
 /// Used as the Home screen's low-opacity background photo.
 const String homeBackgroundImagePath = 'assets/library-front-view.jpg';
+
+const String libraryGroundFloorImagePath = 'assets/library-ground-floor.jpg';
+const String libraryFrontViewImagePath = 'assets/library-front-view.jpg';
+const String libraryFrontLeftAngleImagePath =
+    'assets/library-front-leftAngle-view.jpg';
+const String holdingPhoneImagePath = 'assets/holding_phone.png';
+const String librarianSvgImagePath = 'assets/librarian.svg';
