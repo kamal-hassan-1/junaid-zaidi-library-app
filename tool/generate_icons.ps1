@@ -1,4 +1,8 @@
-# Regenerates the launcher-icon / splash source images from assets/logo.png.
+# Regenerates launcher-icon + Android 12 splash sources from assets/logo.png.
+# The crest PNG is transparent (alpha=0 outside the circle) — never bake a
+# white/light fill behind it for splash icons (that shows as a white plate
+# in dark mode).
+#
 # Re-run after replacing the logo:  powershell -File tool\generate_icons.ps1
 Add-Type -AssemblyName System.Drawing
 
@@ -18,6 +22,7 @@ function New-Composite {
     $logo = [System.Drawing.Image]::FromFile($logoPath)
     $bmp = New-Object System.Drawing.Bitmap($Canvas, $Canvas, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
     $g = [System.Drawing.Graphics]::FromImage($bmp)
+    $g.CompositingMode = [System.Drawing.Drawing2D.CompositingMode]::SourceOver
     $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
     $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
     $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
@@ -39,19 +44,13 @@ function New-Composite {
     Write-Host "wrote $OutFile"
 }
 
-# Legacy square launcher icon: crest on white, small breathing room.
+# Legacy square launcher icon (homescreen — solid white is intentional here)
 New-Composite -OutFile (Join-Path $outDir 'app_icon.png') -Canvas 1024 -LogoSize 856 -BackgroundHex '#FFFFFF'
 
-# Adaptive-icon foreground: transparent, crest kept inside the 66% safe zone
-# so the launcher's circle/squircle mask never clips the "ISLAMABAD" banner.
+# Adaptive-icon foreground: transparent around the crest
 New-Composite -OutFile (Join-Path $outDir 'app_icon_foreground.png') -Canvas 1024 -LogoSize 596
 
-# Android 12+ splash icon. Canvas is filled with #F8F9FA (not transparent) so
-# OEMs that ignore windowSplashScreenBackground (notably MIUI) still show a
-# light plate behind the crest instead of the system dark wallpaper.
-# Logo stays inside the 768px safe circle (~66% of 1152).
-New-Composite -OutFile (Join-Path $outDir 'splash_logo_android12.png') -Canvas 1152 -LogoSize 660 -BackgroundHex '#F8F9FA'
-
-# Pre-Android-12 splash. Treated as xxxhdpi by flutter_native_splash → 132dp,
-# matching SplashScreen.logoSize so the crest does not resize on handoff.
-New-Composite -OutFile (Join-Path $outDir 'splash_logo.png') -Canvas 528 -LogoSize 528
+# Android 12+ splash icon: TRANSPARENT canvas + crest only.
+# Circle fill comes from icon_background_color in pubspec (light/dark),
+# never from pixels baked into this PNG.
+New-Composite -OutFile (Join-Path $outDir 'splash_logo_android12.png') -Canvas 1152 -LogoSize 660

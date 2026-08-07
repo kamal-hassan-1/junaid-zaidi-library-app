@@ -1,49 +1,86 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 import '../data/library_images.dart';
 import '../theme/theme.dart';
+import '../widgets/ui.dart';
 
-/// Continuation of the native Android launch screen while AuthGate restores
-/// the Koha/Firebase session.
+/// Branded splash shown while AuthGate restores the session.
 ///
-/// Must stay visually identical to the native splash (centered crest on
-/// [SemanticColors.background.primary] / #F8F9FA) so the OS → Flutter handoff
-/// reads as one screen, not two. No card, heading, or entrance animation.
-class SplashScreen extends StatelessWidget {
+/// The OS native splash (Android 12+ especially) can only show a centered
+/// crest — it cannot render this card + title layout. This screen takes over
+/// on the first Flutter frame ([FlutterNativeSplash.remove]) so the full
+/// design appears as soon as Flutter is ready.
+class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
-  /// Floor so a near-instant session restore does not flicker the splash off.
-  /// Overlaps the real auth work in AuthGate rather than stacking after it.
-  static const minimumDuration = Duration(milliseconds: 900);
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
 
-  /// Logical size of the crest — matches the native pre-Android-12 splash
-  /// asset (528px @xxxhdpi → 132 logical px).
-  static const double logoSize = 132;
+class _SplashScreenState extends State<SplashScreen> {
+  static const double _logoTile = 132;
+
+  @override
+  void initState() {
+    super.initState();
+    // Drop the native crest-only splash the moment this branded layout paints.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      FlutterNativeSplash.remove();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = useTheme(context);
+    final shadow = cardShadowDecoration(colors);
+    // Surface behind the transparent crest — secondary in dark mode so we
+    // never flash a white plate on a dark background.
+    final tileColor =
+        colors.isDark ? colors.background.secondary : const Color(0xFFFFFFFF);
 
-    // Scaffold supplies Material / DefaultTextStyle (avoids yellow underlines
-    // when AuthGate mounts this as MaterialApp.home with no other ancestor).
     return Scaffold(
       backgroundColor: colors.background.primary,
-      body: Stack(
-        children: [
-          Center(
-            child: Image.asset(
-              logoImagePath,
-              width: logoSize,
-              height: logoSize,
-              fit: BoxFit.contain,
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: MediaQuery.paddingOf(context).bottom + AppSpacing.xxl,
-            child: Center(
-              child: SizedBox(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppGrid.margin),
+          child: Column(
+            children: [
+              const Spacer(),
+              Container(
+                width: _logoTile,
+                height: _logoTile,
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: tileColor,
+                  borderRadius: BorderRadius.circular(AppRadius.xl),
+                  border: shadow.border,
+                  boxShadow: shadow.boxShadow,
+                ),
+                child: const Image(
+                  image: AssetImage(logoImagePath),
+                  fit: BoxFit.contain,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Heading(
+                text: 'Junaid Zaidi Library',
+                level: 4,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: colors.text.primary,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              AppText(
+                'COMSATS University Islamabad',
+                variant: 'bodyBase',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: colors.text.secondary),
+              ),
+              const Spacer(),
+              SizedBox(
                 width: 22,
                 height: 22,
                 child: CircularProgressIndicator(
@@ -51,9 +88,10 @@ class SplashScreen extends StatelessWidget {
                   color: colors.brand,
                 ),
               ),
-            ),
+              const SizedBox(height: AppSpacing.xxl),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

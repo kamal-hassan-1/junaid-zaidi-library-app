@@ -17,7 +17,9 @@ import 'welcome_screen.dart';
 enum _AuthState { loading, authenticated, guest, signedOut }
 
 /// Decides between the auth flow and the app itself. Four states:
-///  - loading: still checking on boot.
+///  - loading: still checking on boot — shows [SplashScreen] (branded card +
+///    titles). Native OS splash is crest-only; SplashScreen removes it on
+///    first frame so the full design takes over immediately.
 ///  - authenticated: BOTH a Koha session AND a Firebase session exist —
 ///    see _checkSession below for why "both" is required, not either.
 ///  - guest: no account, browsing anonymously. Persists across restarts
@@ -62,16 +64,11 @@ class _AuthGateState extends State<AuthGate> {
   /// the safest move is to clear both and force a clean re-login rather
   /// than silently trusting a half-authenticated state.
   Future<void> _checkSession() async {
-    // Started before the checks, not awaited until after them, so the splash's
-    // minimum on-screen time overlaps the session work instead of adding to it.
-    final minimumSplash = Future<void>.delayed(SplashScreen.minimumDuration);
-
     final hasKohaSession = await _kohaAuth.isLoggedIn();
     final hasFirebaseSession = _firebaseAuth.currentUser != null;
 
     if (hasKohaSession && hasFirebaseSession) {
-      await minimumSplash;
-      if (mounted) setState(() => _state = _AuthState.authenticated);
+      _finishLoading(_AuthState.authenticated);
       return;
     }
 
@@ -81,8 +78,11 @@ class _AuthGateState extends State<AuthGate> {
     }
 
     final isGuest = await _secureStorage.isGuestMode();
-    await minimumSplash;
-    if (mounted) setState(() => _state = isGuest ? _AuthState.guest : _AuthState.signedOut);
+    _finishLoading(isGuest ? _AuthState.guest : _AuthState.signedOut);
+  }
+
+  void _finishLoading(_AuthState next) {
+    if (mounted) setState(() => _state = next);
   }
 
   /// Passed to EmailLoginScreen. Flips the gate over to RootShell once

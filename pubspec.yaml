@@ -53,10 +53,12 @@ dependencies:
   # basic_utils parses the PEM public key into a pointycastle RSAPublicKey.
   pointycastle: ^3.9.1
   basic_utils: ^5.7.0
+  # Runtime API (preserve/remove) keeps the native splash up through Firebase
+  # + session restore so AuthGate never needs a second Flutter splash screen.
+  flutter_native_splash: ^2.4.8
 
 dev_dependencies:
   flutter_launcher_icons: ^0.14.3
-  flutter_native_splash: ^2.4.6
   flutter_test:
     sdk: flutter
 
@@ -166,27 +168,33 @@ flutter_launcher_icons:
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
 
-# Native launch screen (OS draws this before Flutter exists). Composition must
-# match SplashScreen exactly: crest centered on #F8F9FA (gray-50 /
-# colors.background.primary). AuthGate then shows the same layout — one splash.
+# Native splash uses the transparent crest (assets/logo.png) only.
+# Android 12+ SplashScreen API cannot render titles/cards — only a circular
+# icon — so the full branded layout (card + "Junaid Zaidi Library" + subtitle)
+# lives in lib/screens/splash_screen.dart and takes over on the first Flutter
+# frame via FlutterNativeSplash.remove().
 #
-# App is light-only; *_dark mirrors light. After `flutter_native_splash:create`,
-# re-apply Theme.Light parents in values-night*/styles.xml (generator uses
-# Theme.Black) and set NormalTheme windowBackground to @color/splash_background.
+# Light / dark colors follow the app gray-50 / gray-950 plates. Do NOT bake a
+# light fill into the Android 12 PNG or dark mode shows a white plate.
+#
+# After `dart run flutter_native_splash:create`, re-check
+# android/app/src/main/res/values-night*/styles.xml for Theme.Light +
+# @color/splash_background if the generator rewrites them to Theme.Black.
 flutter_native_splash:
   color: "#F8F9FA"
-  image: "assets/icon/splash_logo.png"
-  color_dark: "#F8F9FA"
-  image_dark: "assets/icon/splash_logo.png"
+  image: "assets/logo.png"
+  color_dark: "#0A1018"
+  image_dark: "assets/logo.png"
   android: true
-  ios: false
+  ios: true
   web: false
   fullscreen: false
   android_gravity: center
+  ios_content_mode: center
   android_12:
     color: "#F8F9FA"
-    color_dark: "#F8F9FA"
+    color_dark: "#0A1018"
     image: "assets/icon/splash_logo_android12.png"
-    icon_background_color: "#F8F9FA"
     image_dark: "assets/icon/splash_logo_android12.png"
-    icon_background_color_dark: "#F8F9FA"
+    icon_background_color: "#F8F9FA"
+    icon_background_color_dark: "#0A1018"
