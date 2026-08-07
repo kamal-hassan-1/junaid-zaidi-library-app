@@ -8,6 +8,29 @@ import '../../services/koha_auth_service.dart';
 import '../../theme/theme.dart';
 import '../../widgets/ui.dart';
 
+/// Registration number: SS##-DEPT-### e.g. FA23-BCS-050 — same format
+/// enforced on the signup form.
+final _regNumberPattern = RegExp(r'^[A-Z]{2}\d{2}-[A-Z]{2,5}-\d{3}$');
+final _emailPattern = RegExp(r'^[\w.+-]+@[\w-]+\.[\w.-]+$');
+
+/// Who is logging in. Only affects which fields show and which email
+/// domain is required — see the class doc below for why it does NOT yet
+/// change what actually gets sent to Firebase/Koha.
+enum _LoginRole { student, staff, teacher }
+
+extension on _LoginRole {
+  String get label {
+    switch (this) {
+      case _LoginRole.student:
+        return 'Student';
+      case _LoginRole.staff:
+        return 'Staff';
+      case _LoginRole.teacher:
+        return 'Teacher';
+    }
+  }
+}
+
 /// The single real login screen (Updated Authentication Workflow, Phase
 /// 3 / Steps 12-16). Sends the SAME email + password to both Firebase
 /// Auth and Koha's /api/v1/auth/password — both must succeed, matching
@@ -17,6 +40,20 @@ import '../../widgets/ui.dart';
 /// separate "username" concept anymore, which is why the old
 /// login_screen.dart (Koha-only, username-based) was removed rather than
 /// kept as a second screen.
+///
+/// Role selector (Student / Staff / Teacher): this only changes which
+/// fields are shown and which validation rules apply on-device —
+/// Student shows a Registration number field and requires a
+/// @isbstudent.comsats.edu.pk email; Staff/Teacher hide that field and
+/// require a plain @comsats.edu.pk email instead. The actual
+/// authentication call below is still unchanged: Firebase + Koha, and
+/// both only know about approved students (see functions/index.js and
+/// the student_requests-based approval flow). Selecting Staff or
+/// Teacher will validate correctly but the sign-in call itself will
+/// fail for anyone who isn't already a student account, because there
+/// is no staff/teacher account type on the backend yet. Wire that up
+/// (a role field on the account + a Koha patron category for
+/// staff/faculty) before this selector is more than a form toggle.
 class EmailLoginScreen extends StatefulWidget {
   final VoidCallback onLoginSuccess;
 
@@ -29,20 +66,88 @@ class EmailLoginScreen extends StatefulWidget {
 class _EmailLoginScreenState extends State<EmailLoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _regNumberController = TextEditingController();
   final _firebaseAuth = FirebaseAuthService();
   final _kohaAuth = KohaAuthService();
   final _firestoreService = FirestoreService();
 
+  _LoginRole _role = _LoginRole.student;
+
+  String? _emailError;
+  String? _regNumberError;
   String? _formError;
   String? _infoMessage;
+  bool _emailTouched = false;
+  bool _regNumberTouched = false;
   bool _isSubmitting = false;
   bool _isSendingReset = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController.addListener(() {
+      _emailTouched = true;
+      _validateEmail();
+    });
+    _regNumberController.addListener(() {
+      _regNumberTouched = true;
+      _validateRegNumber();
+    });
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _regNumberController.dispose();
     super.dispose();
+  }
+
+  String get _requiredDomain =>
+      _role == _LoginRole.student ? '@isbstudent.comsats.edu.pk' : '@comsats.edu.pk';
+
+  bool _validateEmail() {
+    final email = _emailController.text.trim().toLowerCase();
+    String? error;
+    if (email.isEmpty || !_emailPattern.hasMatch(email)) {
+      error = 'Enter a valid email address.';
+    } else if (!email.endsWith(_requiredDomain)) {
+      error = _role == _LoginRole.student
+          ? 'Students must log in with a $_requiredDomain email.'
+          : '${_role.label} accounts must log in with a $_requiredDomain email.';
+    }
+    if (mounted) setState(() => _emailError = error);
+    return error == null;
+  }
+
+  bool _validateRegNumber() {
+    if (_role != _LoginRole.student) {
+      if (mounted) setState(() => _regNumberError = null);
+      return true;
+    }
+    final reg = _regNumberController.text.trim().toUpperCase();
+    String? error;
+    if (reg.isEmpty) {
+      error = 'Enter your registration number.';
+    } else if (!_regNumberPattern.hasMatch(reg)) {
+      error = 'Use the format FA23-BCS-050.';
+    }
+    if (mounted) setState(() => _regNumberError = error);
+    return error == null;
+  }
+
+  void _selectRole(_LoginRole role) {
+    if (role == _role) return;
+    setState(() {
+      _role = role;
+      _formError = null;
+      _infoMessage = null;
+    });
+    // Domain requirement and (for student) registration-number
+    // requirement both depend on the role, so re-check whatever the
+    // user has already touched.
+    if (_emailTouched) _validateEmail();
+    if (_regNumberTouched) _validateRegNumber();
   }
 
   Future<void> _handleLogin() async {
@@ -52,12 +157,17 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
     setState(() {
       _formError = null;
       _infoMessage = null;
+      _emailTouched = true;
+      _regNumberTouched = true;
     });
 
-    if (email.isEmpty || password.isEmpty) {
-      setState(() => _formError = 'Enter your email and password.');
+    final emailOk = _validateEmail();
+    final regNumberOk = _validateRegNumber();
+    if (password.isEmpty) {
+      setState(() => _formError = 'Enter your password.');
       return;
     }
+    if (!emailOk || !regNumberOk) return;
 
     setState(() => _isSubmitting = true);
     try {
@@ -175,18 +285,33 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
               tone: 'secondary',
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: AppSpacing.xl),
+            const SizedBox(height: AppSpacing.lg),
+            _RoleSelector(role: _role, onChanged: _selectRole),
+            const SizedBox(height: AppSpacing.lg),
             AppCard(
               padding: const EdgeInsets.all(AppSpacing.lg),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (_role == _LoginRole.student) ...[
+                    AppTextField(
+                      label: 'Registration number',
+                      controller: _regNumberController,
+                      placeholder: 'e.g. FA23-BCS-050',
+                      prefixIcon: LucideIcons.id_card,
+                      errorText: _regNumberTouched ? _regNumberError : null,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
                   AppTextField(
                     label: 'Email',
                     controller: _emailController,
-                    placeholder: 'you@isbstudent.comsats.edu.pk',
+                    placeholder: _role == _LoginRole.student
+                        ? 'you@isbstudent.comsats.edu.pk'
+                        : 'you@comsats.edu.pk',
                     keyboardType: TextInputType.emailAddress,
                     prefixIcon: LucideIcons.mail,
+                    errorText: _emailTouched ? _emailError : null,
                   ),
                   const SizedBox(height: AppSpacing.md),
                   AppTextField(
@@ -227,6 +352,59 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Three-way Student / Staff / Teacher chip selector shown above the
+/// login card. Deliberately a plain Row of tappable chips rather than a
+/// new shared widget — this is the only screen that needs a role picker
+/// right now, so it isn't promoted into widgets/ui.dart.
+class _RoleSelector extends StatelessWidget {
+  final _LoginRole role;
+  final ValueChanged<_LoginRole> onChanged;
+
+  const _RoleSelector({required this.role, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = useTheme(context);
+
+    return Row(
+      children: _LoginRole.values.map((option) {
+        final isSelected = option == role;
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(
+              right: option == _LoginRole.values.last ? 0 : AppSpacing.sm,
+            ),
+            child: GestureDetector(
+              onTap: () => onChanged(option),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isSelected ? colors.brand : colors.background.secondary,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(
+                    color: isSelected ? colors.brand : colors.border,
+                    width: 1,
+                  ),
+                ),
+                child: AppText(
+                  option.label,
+                  variant: 'bodySmall',
+                  style: TextStyle(
+                    color: isSelected ? colors.text.onBrand : colors.text.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 }

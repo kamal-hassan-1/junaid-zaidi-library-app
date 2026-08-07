@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 
+import '../../data/campuses.dart';
 import '../../models/student_request.dart';
 import '../../navigation/routes.dart';
 import '../../services/crypto_service.dart';
@@ -11,23 +12,76 @@ import '../../widgets/ui.dart';
 
 final _cnicPattern = RegExp(r'^\d{5}-\d{7}-\d$');
 final _emailPattern = RegExp(r'^[\w.+-]+@[\w-]+\.[\w.-]+$');
-// Password policy (Updated Authentication Workflow, Phase 1 / Step 1:
-// "Password meets the required policy"): at least 8 characters, with at
-// least one letter and one digit. The doc names the requirement but not
-// the exact rule, so this is a documented assumption, not a literal
-// quote from it — tighten it here if COMSATS gives you a stricter spec.
+// Password policy: at least 8 characters, with at least one letter and
+// one digit.
 final _passwordHasLetter = RegExp(r'[A-Za-z]');
 final _passwordHasDigit = RegExp(r'\d');
 
-/// The full registration screen (Updated Authentication Workflow, Phase
-/// 1). Unlike the old three-screen flow (email -> verify -> form), there
-/// is no separate email-verification step and no temporary Firebase
-/// account here — the doc's Step 1 only validates field FORMAT (a real
-/// COMSATS domain, a matching password/confirm pair), not email
-/// ownership. Submitting writes a single Pending student_requests
-/// document with an RSA-encrypted password (Step 2) and nothing else —
-/// no Firebase account and no Koha patron exist until a librarian
-/// approves it (see functions/index.js).
+// Full name: letters and single spaces only, no digits/symbols. Applied
+// against the trimmed value so leading/trailing spaces don't trip it.
+final _fullNamePattern = RegExp(r'^[A-Za-z]+(?: [A-Za-z]+)*$');
+
+// Registration number: SS##-DEPT-### e.g. FA23-BCS-050. Two letters
+// (intake season), two digits (intake year), the department code
+// (2-5 letters), then a three-digit roll number.
+final _regNumberPattern = RegExp(r'^[A-Z]{2}\d{2}-[A-Z]{2,5}-\d{3}$');
+
+// Pakistani mobile number formatted as 03XX-XXXXXXX â€” 11 digits total,
+// always starting with 03 (Pakistani mobile prefix).
+final _phonePattern = RegExp(r'^03\d{2}-\d{7}$');
+
+/// Registration-number department codes -> full department names, used
+/// to auto-populate the Department field as the student types their
+/// registration number. Not exhaustive â€” COMSATS Islamabad's actual
+/// program list is longer than what's captured here â€” so unknown codes
+/// simply leave Department untouched for manual entry rather than
+/// blocking the form.
+const Map<String, String> _departmentCodeMap = {
+  'BCS': 'Department of Computer Science',
+  'CS': 'Department of Computer Science',
+  'SE': 'Department of Software Engineering',
+  'BSE': 'Department of Software Engineering',
+  'IT': 'Department of Information Technology',
+  'BIT': 'Department of Information Technology',
+  'AI': 'Department of Artificial Intelligence',
+  'BAI': 'Department of Artificial Intelligence',
+  'DS': 'Department of Data Science',
+  'CYS': 'Department of Cyber Security',
+  'EE': 'Department of Electrical Engineering',
+  'BEE': 'Department of Electrical Engineering',
+  'ELE': 'Department of Electrical Engineering',
+  'CE': 'Department of Civil Engineering',
+  'BCE': 'Department of Civil Engineering',
+  'ME': 'Department of Mechanical Engineering',
+  'BME': 'Department of Mechanical Engineering',
+  'BBA': 'Department of Management Sciences',
+  'MBA': 'Department of Management Sciences',
+  'ACC': 'Department of Accounting & Finance',
+  'ACF': 'Department of Accounting & Finance',
+  'ECO': 'Department of Economics',
+  'ENG': 'Department of English',
+  'MATH': 'Department of Mathematics',
+  'PSY': 'Department of Psychology',
+  'BIO': 'Department of Biosciences',
+  'BT': 'Department of Biotechnology',
+  'PHY': 'Department of Physics',
+  'CHE': 'Department of Chemistry',
+  'ARCH': 'Department of Architecture',
+  'LAW': 'Department of Law',
+};
+
+/// The full Student registration screen (Updated Authentication
+/// Workflow â€” role-aware registration: this is the [RegistrationRole.
+/// student] path; Staff/Teacher go through StaffSignupFormScreen
+/// instead). Submitting writes a single Pending student_requests
+/// document with an encrypted password â€” no Firebase account and no
+/// Koha patron exist until a librarian approves it (see
+/// functions/index.js).
+///
+/// Every field validates live via controller listeners (see
+/// _attachLiveValidation in initState) in addition to a full re-check on
+/// submit, so errors clear/appear as the student types instead of only
+/// on submit.
 class SignupFormScreen extends StatefulWidget {
   const SignupFormScreen({super.key});
 
@@ -42,15 +96,18 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _phoneController = TextEditingController();
+  final _phoneController = TextEditingController(text: '03');
   final _cnicController = TextEditingController();
 
   final _cryptoService = CryptoService();
   final _firestoreService = FirestoreService();
 
+  String? _selectedCampus;
+
   String? _fullNameError;
   String? _regNumberError;
   String? _departmentError;
+  String? _campusError;
   String? _emailError;
   String? _passwordError;
   String? _confirmPasswordError;
@@ -58,8 +115,67 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
   String? _cnicError;
   String? _formError;
 
+  // Tracks whether the student has manually typed into Department
+  // themselves â€” once true, auto-fill from the registration number
+  // stops overwriting whatever they've entered.
+  bool _departmentEditedByUser = false;
+
+  // Only start showing an error for a field once the student has
+  // interacted with it â€” otherwise every field would show red before
+  // they've typed a single character.
+  bool _fullNameTouched = false;
+  bool _regNumberTouched = false;
+  bool _departmentTouched = false;
+  bool _campusTouched = false;
+  bool _emailTouched = false;
+  bool _passwordTouched = false;
+  bool _confirmPasswordTouched = false;
+  bool _phoneTouched = false;
+  bool _cnicTouched = false;
+
   bool _isSubmitting = false;
   bool _isSubmitted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fullNameController.addListener(() {
+      _fullNameTouched = true;
+      _validateFullName();
+    });
+    _regNumberController.addListener(() {
+      _regNumberTouched = true;
+      _validateRegNumber();
+      _maybeAutoFillDepartment();
+    });
+    _departmentController.addListener(() {
+      _departmentTouched = true;
+      _departmentEditedByUser = true;
+      _validateDepartment();
+    });
+    _emailController.addListener(() {
+      _emailTouched = true;
+      _validateEmail();
+    });
+    _passwordController.addListener(() {
+      _passwordTouched = true;
+      _validatePassword();
+      // Re-check confirm password too, since it depends on this value.
+      if (_confirmPasswordTouched) _validateConfirmPassword();
+    });
+    _confirmPasswordController.addListener(() {
+      _confirmPasswordTouched = true;
+      _validateConfirmPassword();
+    });
+    _phoneController.addListener(() {
+      _phoneTouched = true;
+      _validatePhone();
+    });
+    _cnicController.addListener(() {
+      _cnicTouched = true;
+      _validateCnic();
+    });
+  }
 
   @override
   void dispose() {
@@ -74,71 +190,156 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
     super.dispose();
   }
 
-  bool _validate() {
-    setState(() {
-      _fullNameError = null;
-      _regNumberError = null;
-      _departmentError = null;
-      _emailError = null;
-      _passwordError = null;
-      _confirmPasswordError = null;
-      _phoneError = null;
-      _cnicError = null;
-      _formError = null;
-    });
+  // ---- Per-field live validators -----------------------------------
+  // Each returns true/false AND updates the matching error string, so
+  // they can be reused both by the listeners above (live, per-keystroke)
+  // and by _validate() (full check on submit).
 
-    var isValid = true;
+  bool _validateFullName() {
+    final name = _fullNameController.text.trim();
+    String? error;
+    if (name.isEmpty) {
+      error = 'Enter your full name.';
+    } else if (name.length < 5) {
+      error = 'Full name must be at least 5 characters.';
+    } else if (!_fullNamePattern.hasMatch(name)) {
+      error = 'Only letters and spaces are allowed â€” no numbers or symbols.';
+    }
+    if (mounted) setState(() => _fullNameError = error);
+    return error == null;
+  }
 
-    if (_fullNameController.text.trim().isEmpty) {
-      setState(() => _fullNameError = 'Enter your full name.');
-      isValid = false;
+  bool _validateRegNumber() {
+    final reg = _regNumberController.text.trim().toUpperCase();
+    String? error;
+    if (reg.isEmpty) {
+      error = 'Enter your registration number.';
+    } else if (!_regNumberPattern.hasMatch(reg)) {
+      error = 'Use the format FA23-BCS-050 (season, year, department, roll no).';
     }
-    if (_regNumberController.text.trim().isEmpty) {
-      setState(() => _regNumberError = 'Enter your registration number.');
-      isValid = false;
-    }
+    if (mounted) setState(() => _regNumberError = error);
+    return error == null;
+  }
+
+  bool _validateDepartment() {
+    String? error;
     if (_departmentController.text.trim().isEmpty) {
-      setState(() => _departmentError = 'Enter your department.');
-      isValid = false;
+      error = 'Enter your department.';
     }
+    if (mounted) setState(() => _departmentError = error);
+    return error == null;
+  }
 
+  bool _validateCampus() {
+    String? error;
+    if (_selectedCampus == null || _selectedCampus!.isEmpty) {
+      error = 'Select your campus.';
+    }
+    if (mounted) setState(() => _campusError = error);
+    return error == null;
+  }
+
+  bool _validateEmail() {
     final email = _emailController.text.trim().toLowerCase();
+    String? error;
     if (email.isEmpty || !_emailPattern.hasMatch(email)) {
-      setState(() => _emailError = 'Enter a valid email address.');
-      isValid = false;
+      error = 'Enter a valid email address.';
     } else if (!email.endsWith('@isbstudent.comsats.edu.pk')) {
-      setState(() =>
-          _emailError = 'Use your COMSATS Outlook email (must end with @isbstudent.comsats.edu.pk).');
-      isValid = false;
+      error = 'Use your COMSATS Outlook email (must end with @isbstudent.comsats.edu.pk).';
     }
+    if (mounted) setState(() => _emailError = error);
+    return error == null;
+  }
 
+  bool _validatePassword() {
     final password = _passwordController.text;
+    String? error;
     if (password.length < 8 ||
         !_passwordHasLetter.hasMatch(password) ||
         !_passwordHasDigit.hasMatch(password)) {
-      setState(() =>
-          _passwordError = 'At least 8 characters, with a mix of letters and numbers.');
-      isValid = false;
+      error = 'At least 8 characters, with a mix of letters and numbers.';
     }
-    if (_confirmPasswordController.text != password) {
-      setState(() => _confirmPasswordError = 'Passwords do not match.');
-      isValid = false;
-    }
+    if (mounted) setState(() => _passwordError = error);
+    return error == null;
+  }
 
-    // Phone is optional per the workflow doc — only validate its shape
-    // if the student actually entered something.
+  bool _validateConfirmPassword() {
+    String? error;
+    if (_confirmPasswordController.text != _passwordController.text) {
+      error = 'Passwords do not match.';
+    }
+    if (mounted) setState(() => _confirmPasswordError = error);
+    return error == null;
+  }
+
+  bool _validatePhone() {
     final phone = _phoneController.text.trim();
-    if (phone.isNotEmpty && phone.length < 7) {
-      setState(() => _phoneError = 'Enter a valid phone number.');
-      isValid = false;
+    String? error;
+    if (phone.isEmpty || phone == '03') {
+      error = 'Enter your phone number.';
+    } else if (!_phonePattern.hasMatch(phone)) {
+      error = 'Use the format 03XX-XXXXXXX (11 digits, starting with 03).';
     }
+    if (mounted) setState(() => _phoneError = error);
+    return error == null;
+  }
 
+  bool _validateCnic() {
+    String? error;
     if (!_cnicPattern.hasMatch(_cnicController.text.trim())) {
-      setState(() => _cnicError = 'Enter your CNIC as xxxxx-xxxxxxx-x.');
-      isValid = false;
+      error = 'Enter your CNIC as xxxxx-xxxxxxx-x.';
     }
+    if (mounted) setState(() => _cnicError = error);
+    return error == null;
+  }
 
-    return isValid;
+  /// Reads the department code out of a (possibly partial) registration
+  /// number and fills Department from [_departmentCodeMap] â€” but only
+  /// while the student hasn't started editing Department by hand.
+  void _maybeAutoFillDepartment() {
+    if (_departmentEditedByUser) return;
+
+    final reg = _regNumberController.text.trim().toUpperCase();
+    // Registration number so far looks like SS##-CODE(-###)?
+    final match = RegExp(r'^[A-Z]{2}\d{2}-([A-Z]{2,5})').firstMatch(reg);
+    if (match == null) return;
+
+    final code = match.group(1)!;
+    final department = _departmentCodeMap[code];
+    if (department != null && _departmentController.text != department) {
+      _departmentController.text = department;
+      // Auto-fill doesn't count as the user editing it â€” the department
+      // listener above just flipped this to true, so reset it.
+      _departmentEditedByUser = false;
+      if (_departmentTouched) _validateDepartment();
+    }
+  }
+
+  bool _validate() {
+    setState(() => _formError = null);
+    _fullNameTouched = true;
+    _regNumberTouched = true;
+    _departmentTouched = true;
+    _campusTouched = true;
+    _emailTouched = true;
+    _passwordTouched = true;
+    _confirmPasswordTouched = true;
+    _phoneTouched = true;
+    _cnicTouched = true;
+
+    final validations = [
+      _validateFullName(),
+      _validateRegNumber(),
+      _validateDepartment(),
+      _validateCampus(),
+      _validateEmail(),
+      _validatePassword(),
+      _validateConfirmPassword(),
+      _validatePhone(),
+      _validateCnic(),
+    ];
+
+    return !validations.contains(false);
   }
 
   Future<void> _handleSubmit() async {
@@ -149,8 +350,10 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
       final encryptedPassword = _cryptoService.encryptPassword(_passwordController.text);
 
       final request = StudentRequest(
+        role: RegistrationRole.student,
+        campus: _selectedCampus!,
         fullName: _fullNameController.text.trim(),
-        registrationNumber: _regNumberController.text.trim(),
+        registrationNumber: _regNumberController.text.trim().toUpperCase(),
         department: _departmentController.text.trim(),
         email: _emailController.text.trim().toLowerCase(),
         phone: _phoneController.text.trim(),
@@ -192,7 +395,7 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
               behavior: HitTestBehavior.opaque,
               child: Row(
                 children: [
-                  Icon(LucideIcons.arrow_left, size: 20),
+                  const Icon(LucideIcons.arrow_left, size: 20),
                   const SizedBox(width: AppSpacing.xs),
                   AppText('Back', variant: 'bodyBase', tone: 'secondary'),
                 ],
@@ -212,23 +415,45 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
               controller: _fullNameController,
               placeholder: 'e.g. Muaaz Tasawar',
               prefixIcon: LucideIcons.user,
-              errorText: _fullNameError,
+              errorText: _fullNameTouched ? _fullNameError : null,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
+              ],
             ),
             const SizedBox(height: AppSpacing.md),
             AppTextField(
               label: 'Registration number',
               controller: _regNumberController,
-              placeholder: 'e.g. FA23-BCS-123',
+              placeholder: 'e.g. FA23-BCS-050',
               prefixIcon: LucideIcons.id_card,
-              errorText: _regNumberError,
+              errorText: _regNumberTouched ? _regNumberError : null,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9-]')),
+                LengthLimitingTextInputFormatter(13),
+                _UpperCaseFormatter(),
+              ],
             ),
             const SizedBox(height: AppSpacing.md),
             AppTextField(
               label: 'Department',
               controller: _departmentController,
-              placeholder: 'e.g. Department of Computer Science',
+              placeholder: 'Auto-filled from registration number, or type it in',
               prefixIcon: LucideIcons.graduation_cap,
-              errorText: _departmentError,
+              errorText: _departmentTouched ? _departmentError : null,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            AppDropdownField(
+              label: 'Campus',
+              value: _selectedCampus,
+              options: kComsatsCampuses,
+              placeholder: 'Select your campus',
+              prefixIcon: LucideIcons.map_pin,
+              errorText: _campusTouched ? _campusError : null,
+              onChanged: (value) {
+                _campusTouched = true;
+                setState(() => _selectedCampus = value);
+                _validateCampus();
+              },
             ),
             const SizedBox(height: AppSpacing.md),
             AppTextField(
@@ -237,7 +462,7 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
               placeholder: 'you@isbstudent.comsats.edu.pk',
               keyboardType: TextInputType.emailAddress,
               prefixIcon: LucideIcons.mail,
-              errorText: _emailError,
+              errorText: _emailTouched ? _emailError : null,
             ),
             const SizedBox(height: AppSpacing.md),
             AppTextField(
@@ -246,7 +471,7 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
               placeholder: 'At least 8 characters, letters + numbers',
               obscureText: true,
               prefixIcon: LucideIcons.lock,
-              errorText: _passwordError,
+              errorText: _passwordTouched ? _passwordError : null,
             ),
             const SizedBox(height: AppSpacing.md),
             AppTextField(
@@ -255,16 +480,21 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
               placeholder: 'Re-enter your password',
               obscureText: true,
               prefixIcon: LucideIcons.lock,
-              errorText: _confirmPasswordError,
+              errorText: _confirmPasswordTouched ? _confirmPasswordError : null,
             ),
             const SizedBox(height: AppSpacing.md),
             AppTextField(
-              label: 'Phone number (optional)',
+              label: 'Phone number',
               controller: _phoneController,
-              placeholder: 'e.g. 03001234567',
+              placeholder: '03XX-XXXXXXX',
               keyboardType: TextInputType.phone,
               prefixIcon: LucideIcons.phone,
-              errorText: _phoneError,
+              errorText: _phoneTouched ? _phoneError : null,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(11),
+                _PhoneDashFormatter(),
+              ],
             ),
             const SizedBox(height: AppSpacing.md),
             AppTextField(
@@ -273,7 +503,7 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
               placeholder: 'xxxxx-xxxxxxx-x',
               keyboardType: TextInputType.number,
               prefixIcon: LucideIcons.file_text,
-              errorText: _cnicError,
+              errorText: _cnicTouched ? _cnicError : null,
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
                 LengthLimitingTextInputFormatter(13),
@@ -297,6 +527,22 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
   }
 }
 
+/// Forces every character typed into the registration-number field to
+/// uppercase as it's typed, so "fa23-bcs-050" displays (and validates)
+/// the same as "FA23-BCS-050".
+class _UpperCaseFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    return TextEditingValue(
+      text: newValue.text.toUpperCase(),
+      selection: newValue.selection,
+    );
+  }
+}
+
 /// Auto-inserts the two CNIC dashes as the student types, so the field
 /// always displays as xxxxx-xxxxxxx-x. Combined with
 /// FilteringTextInputFormatter.digitsOnly (upstream in the formatter
@@ -312,6 +558,31 @@ class _CnicDashFormatter extends TextInputFormatter {
     for (var i = 0; i < digits.length; i++) {
       buffer.write(digits[i]);
       if (i == 4 || i == 11) buffer.write('-');
+    }
+    final formatted = buffer.toString();
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+/// Auto-inserts the single dash for a Pakistani mobile number as the
+/// student types, so the field always displays as 03XX-XXXXXXX (11
+/// digits total, dash after the 4th). Combined with
+/// FilteringTextInputFormatter.digitsOnly upstream, this only ever sees
+/// raw digits.
+class _PhoneDashFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text;
+    final buffer = StringBuffer();
+    for (var i = 0; i < digits.length; i++) {
+      buffer.write(digits[i]);
+      if (i == 3) buffer.write('-');
     }
     final formatted = buffer.toString();
     return TextEditingValue(
