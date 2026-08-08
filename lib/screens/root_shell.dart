@@ -36,15 +36,32 @@ class _RootShellState extends State<RootShell> {
   int _index = AppTabs.home;
   final _moreNavigatorKey = GlobalKey<NavigatorState>();
 
-  void _goToTab(int index) => setState(() => _index = index);
+  void _goToTab(int index) {
+    // Selecting More always lands on the menu root — both when switching
+    // from another tab (stack was preserved by IndexedStack) and when
+    // re-tapping More while nested.
+    if (index == AppTabs.more) {
+      _moreNavigatorKey.currentState?.popUntil((route) => route.isFirst);
+    }
+    setState(() => _index = index);
+  }
 
+  /// Open a More stack screen from another tab (e.g. Home quick links).
+  ///
+  /// Replaces anything above the More root with an *instant* route, then
+  /// switches tabs on the next frame — so the More menu never flashes under
+  /// a slide transition.
   void _openMoreRoute(String routeName) {
-    setState(() => _index = AppTabs.more);
+    final nav = _moreNavigatorKey.currentState;
+    if (nav != null) {
+      nav.pushAndRemoveUntil(
+        _buildMoreRoute(RouteSettings(name: routeName), instant: true),
+        (route) => route.isFirst,
+      );
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final nav = _moreNavigatorKey.currentState;
-      if (nav == null) return;
-      nav.popUntil((route) => route.isFirst);
-      nav.pushNamed(routeName);
+      if (!mounted) return;
+      setState(() => _index = AppTabs.more);
     });
   }
 
@@ -65,44 +82,62 @@ class _RootShellState extends State<RootShell> {
     MoreRoutes.aboutFloorPlan: 'Floor Plan',
   };
 
-  Route<dynamic> _onGenerateMoreRoute(RouteSettings settings) {
-    late final Widget page;
-    switch (settings.name) {
+  Widget _pageForMoreRoute(String? name) {
+    switch (name) {
       case MoreRoutes.profile:
-        page = const ProfileScreen();
+        return const ProfileScreen();
       case MoreRoutes.changePassword:
-        page = const RequestPasswordChangeScreen();
+        return const RequestPasswordChangeScreen();
       case MoreRoutes.guides:
-        page = const GuidesScreen();
+        return const GuidesScreen();
       case MoreRoutes.map:
-        page = const MapScreen();
+        return const MapScreen();
       case MoreRoutes.contact:
-        page = const ContactUsScreen();
+        return const ContactUsScreen();
       case MoreRoutes.openingHours:
-        page = const OpeningHoursScreen();
+        return const OpeningHoursScreen();
       case MoreRoutes.about:
-        page = const AboutScreen();
+        return const AboutScreen();
       case MoreRoutes.aboutFacts:
-        page = const FactsScreen();
+        return const FactsScreen();
       case MoreRoutes.aboutRules:
-        page = const RulesScreen();
+        return const RulesScreen();
       case MoreRoutes.aboutStaff:
-        page = const StaffScreen();
+        return const StaffScreen();
       case MoreRoutes.aboutFloorPlan:
-        page = const FloorPlanScreen();
+        return const FloorPlanScreen();
       case MoreRoutes.root:
       default:
-        page = const MoreScreen();
+        return const MoreScreen();
     }
+  }
 
+  Route<dynamic> _buildMoreRoute(
+    RouteSettings settings, {
+    bool instant = false,
+  }) {
+    final page = _pageForMoreRoute(settings.name);
     final title = _moreStackTitles[settings.name];
     final wrapped = title == null
         ? page
         : Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: page,
-    );
-    return MaterialPageRoute(builder: (_) => wrapped, settings: settings);
+            appBar: AppBar(title: Text(title)),
+            body: page,
+          );
+
+    if (instant) {
+      return PageRouteBuilder<void>(
+        settings: settings,
+        pageBuilder: (context, animation, secondaryAnimation) => wrapped,
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      );
+    }
+    return MaterialPageRoute<void>(builder: (_) => wrapped, settings: settings);
+  }
+
+  Route<dynamic> _onGenerateMoreRoute(RouteSettings settings) {
+    return _buildMoreRoute(settings);
   }
 
   @override
