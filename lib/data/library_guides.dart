@@ -33,8 +33,6 @@ class LibraryGuideLink {
         LibraryGuideAction.download => kGuideDownloadMessage,
         LibraryGuideAction.externalVideo => kGuideVideoRedirectMessage,
       };
-
-  bool get opensExternally => true;
 }
 
 final List<LibraryGuideLink> libraryGuides = [

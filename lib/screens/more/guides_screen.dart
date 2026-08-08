@@ -5,8 +5,6 @@ import '../../data/library_guides.dart';
 import '../../theme/theme.dart';
 import '../../widgets/ui.dart';
 
-/// Grouped list container — a card-like surface holding several [ListRow]s
-/// stacked with dividers.
 Widget _groupedList(SemanticColors colors, List<Widget> rows) {
   final shadow = cardShadowDecoration(colors);
   return Container(
@@ -20,8 +18,6 @@ Widget _groupedList(SemanticColors colors, List<Widget> rows) {
     child: Column(children: rows),
   );
 }
-
-/// Guides and Documentation screen. Mirrors app/(tabs)/more/guides.js.
 class GuidesScreen extends StatelessWidget {
   const GuidesScreen({super.key});
 
@@ -57,8 +53,8 @@ class GuidesScreen extends StatelessWidget {
                 icon: libraryGuides[i].icon,
                 label: libraryGuides[i].title,
                 accent: libraryGuides[i].accent,
-                opensExternally: libraryGuides[i].opensExternally,
                 onTap: () => _openGuide(context, libraryGuides[i]),
+                showChevron: false,
                 showDivider: i < libraryGuides.length - 1,
               ),
           ]),
