@@ -34,7 +34,8 @@ class LibraryServiceLink {
   });
 }
 
-final List<LibraryServiceLink> libraryServiceLinks = [
+/// Primary services shown under "Core Services".
+final List<LibraryServiceLink> coreServiceLinks = [
   const LibraryServiceLink(
     title: 'OPAC',
     subtitle: 'Catalog search',
@@ -74,6 +75,10 @@ final List<LibraryServiceLink> libraryServiceLinks = [
     action: LibraryServiceAction.externalUrl,
     url: 'https://library.comsats.edu.pk/hec-ebooks-library.aspx',
   ),
+];
+
+/// Secondary services shown under the "More" subsection (after Forms).
+final List<LibraryServiceLink> moreServiceLinks = [
   const LibraryServiceLink(
     title: 'Audio/Video',
     subtitle: 'Media resources',

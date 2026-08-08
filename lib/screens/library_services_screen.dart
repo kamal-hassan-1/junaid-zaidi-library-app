@@ -9,7 +9,7 @@ import '../navigation/routes.dart';
 import '../theme/theme.dart';
 import '../widgets/ui.dart';
 
-/// Services tab: catalog/digital resources, guides, and library forms.
+/// Services tab: core services, forms, then additional links.
 class LibraryServicesScreen extends StatelessWidget {
   const LibraryServicesScreen({super.key});
 
@@ -53,6 +53,29 @@ class LibraryServicesScreen extends StatelessWidget {
     await _openExternal(context, form.url, form.confirmMessage);
   }
 
+  List<Widget> _serviceRows(List<LibraryServiceLink> links) {
+    return [
+      for (var i = 0; i < links.length; i++) ...[
+        if (i > 0) const SizedBox(height: AppSpacing.md),
+        Builder(
+          builder: (context) {
+            final service = links[i];
+            final external =
+                service.action == LibraryServiceAction.externalUrl;
+            return ResourceRow(
+              icon: service.icon,
+              title: service.title,
+              subtitle: service.subtitle,
+              accent: service.accent,
+              opensExternally: external,
+              onTap: () => _onServiceTap(context, service),
+            );
+          },
+        ),
+      ],
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return ScreenContainer(
@@ -64,26 +87,9 @@ class LibraryServicesScreen extends StatelessWidget {
         children: [
           const Padding(
             padding: EdgeInsets.only(bottom: AppSpacing.ms),
-            child: Heading(level: 5, text: 'Services'),
+            child: Heading(level: 5, text: 'Core Services'),
           ),
-          for (var i = 0; i < libraryServiceLinks.length; i++) ...[
-            if (i > 0) const SizedBox(height: AppSpacing.md),
-            Builder(
-              builder: (context) {
-                final service = libraryServiceLinks[i];
-                final external =
-                    service.action == LibraryServiceAction.externalUrl;
-                return ResourceRow(
-                  icon: service.icon,
-                  title: service.title,
-                  subtitle: service.subtitle,
-                  accent: service.accent,
-                  opensExternally: external,
-                  onTap: () => _onServiceTap(context, service),
-                );
-              },
-            ),
-          ],
+          ..._serviceRows(coreServiceLinks),
           const Padding(
             padding: EdgeInsets.only(top: AppSpacing.xl, bottom: AppSpacing.ms),
             child: Heading(level: 5, text: 'Forms'),
@@ -104,6 +110,11 @@ class LibraryServicesScreen extends StatelessWidget {
               },
             ),
           ],
+          const Padding(
+            padding: EdgeInsets.only(top: AppSpacing.xl, bottom: AppSpacing.ms),
+            child: Heading(level: 5, text: 'More'),
+          ),
+          ..._serviceRows(moreServiceLinks),
         ],
       ),
     );
