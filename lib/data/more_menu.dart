@@ -4,8 +4,7 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import '../navigation/routes.dart';
 import '../theme/accents.dart';
 
-/// Static "More" tab menu, grouped into sections. Items may navigate
-/// in-app via [routeName] or open an external URL via [externalUrl].
+/// Static "More" tab menu, grouped into sections.
 /// `accent` names a semantic color used to tint each item's icon chip,
 /// purely for visual categorization — not a status signal.
 enum MoreMenuSection { library, community }
@@ -15,7 +14,6 @@ class MoreMenuItem {
   final String label;
   final IconData icon;
   final String? routeName;
-  final String? externalUrl;
   final MoreMenuSection section;
   final AppAccent accent;
 
@@ -24,7 +22,6 @@ class MoreMenuItem {
     required this.label,
     required this.icon,
     this.routeName,
-    this.externalUrl,
     required this.section,
     required this.accent,
   });
@@ -78,13 +75,5 @@ final List<MoreMenuItem> moreMenu = [
     routeName: MoreRoutes.contact,
     section: MoreMenuSection.community,
     accent: AppAccent.error,
-  ),
-  const MoreMenuItem(
-    key: 'calendar',
-    label: 'Event Calendar',
-    icon: LucideIcons.calendar,
-    externalUrl: 'https://library.comsats.edu.pk/calendar.aspx',
-    section: MoreMenuSection.community,
-    accent: AppAccent.success,
   ),
 ];

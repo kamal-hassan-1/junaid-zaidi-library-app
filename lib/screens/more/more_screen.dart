@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/more_menu.dart';
 import '../../models/profile_data.dart';
@@ -37,30 +36,13 @@ Widget _buildSectionList(BuildContext context, SemanticColors colors, MoreMenuSe
         icon: items[i].icon,
         label: items[i].label,
         accent: items[i].accent,
-        onTap: _onTapForItem(context, items[i]),
+        onTap: items[i].routeName != null
+            ? () => Navigator.of(context).pushNamed(items[i].routeName!)
+            : null,
         showChevron: items[i].routeName != null,
         showDivider: i < items.length - 1,
       ),
   ]);
-}
-
-VoidCallback? _onTapForItem(BuildContext context, MoreMenuItem item) {
-  if (item.routeName != null) {
-    return () => Navigator.of(context).pushNamed(item.routeName!);
-  }
-  if (item.externalUrl != null) {
-    return () => _openExternal(context, item.externalUrl!);
-  }
-  return null;
-}
-
-Future<void> _openExternal(BuildContext context, String url) async {
-  final confirmed = await showRedirectConfirmPopup(
-    context,
-    message: kLibraryWebsiteRedirectMessage,
-  );
-  if (!confirmed) return;
-  await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
 }
 
 class MoreScreen extends StatefulWidget {
