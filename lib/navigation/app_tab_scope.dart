@@ -7,7 +7,7 @@ class AppTabs {
   static const int home = 0;
   static const int search = 1;
   static const int services = 2;
-  static const int exploreSpaces = 3;
+  static const int spaces = 3;
   static const int more = 4;
 }
 

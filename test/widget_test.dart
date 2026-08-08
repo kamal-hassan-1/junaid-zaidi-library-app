@@ -10,13 +10,9 @@ void main() {
 
     expect(find.text('Junaid Zaidi Library'), findsOneWidget);
 
-    // Bottom tab labels are checked as descendants of the bottom nav bar
-    // specifically, since "Explore Spaces" also appears as a Home-screen
-    // resource card title (matching the original app's data/design) and
-    // would otherwise make find.text ambiguous.
     final bottomNavBar = find.byType(BottomNavigationBar);
     expect(bottomNavBar, findsOneWidget);
-    for (final label in ['Home', 'Library Resources', 'Explore Spaces', 'More']) {
+    for (final label in ['Home', 'Search', 'Services', 'Spaces', 'More']) {
       expect(
         find.descendant(of: bottomNavBar, matching: find.text(label)),
         findsOneWidget,

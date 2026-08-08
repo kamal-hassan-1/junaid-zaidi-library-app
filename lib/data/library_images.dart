@@ -105,11 +105,29 @@ final List<LibraryImage> libraryImages = [
     caption: 'Art gallery',
   ),
   const LibraryImage(
+    key: 'phd-research-lab-1',
+    assetPath: 'assets/phd-research-lab-1.jpg',
+    caption: 'PhD research lab',
+  ),
+  const LibraryImage(
     key: 'book-lending-software-opened-on-desktop',
     assetPath: 'assets/book-lending-software-opened-on-desktop.jpg',
     caption: 'Book lending desk',
   ),
 ];
+
+const String basementConferenceRoomImagePath =
+    'assets/basement-conference-room.jpg';
+const String conferenceRoomImagePath = 'assets/conference-room.jpg';
+const String groupStudyRoomsImagePath = 'assets/group-study-rooms.jpg';
+const String publicComputerCubiclesImagePath =
+    'assets/public-computer-cubicles.jpg';
+const String magazineShelfImagePath = 'assets/magazine-shelf.jpg';
+const String phdResearchLabImagePath = 'assets/phd-research-lab-1.jpg';
+const String womenCornerImagePath = 'assets/women-corner.jpg';
+const String artGallery1ImagePath = 'assets/art-gallery-1.jpg';
+const String artGallery2ImagePath = 'assets/art-gallery-2.jpg';
+const String coffeeShop1ImagePath = 'assets/coffee-shop-1.jpg';
 
 const String logoImagePath = 'assets/logo.png';
 

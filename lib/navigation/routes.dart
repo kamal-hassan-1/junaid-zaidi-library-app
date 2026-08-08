@@ -16,6 +16,17 @@ class MoreRoutes {
   static const String aboutFloorPlan = '/more/about/floor-plan';
 }
 
+/// Nested Navigator routes for the Spaces tab.
+class SpacesRoutes {
+  const SpacesRoutes._();
+
+  static const String root = '/spaces';
+  static const String detail = '/spaces/detail';
+
+  /// Named route for a specific space detail page.
+  static String detailFor(String id) => '$detail/$id';
+}
+
 /// Route names for the nested Navigator that AuthGate owns.
 ///
 /// Updated Authentication Workflow, Phase 1: signupEmail and

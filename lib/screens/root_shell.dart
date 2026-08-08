@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 
+import '../data/library_spaces.dart';
 import '../navigation/app_tab_scope.dart';
 import '../navigation/routes.dart';
 import '../theme/theme.dart';
-import 'explore_spaces_screen.dart';
 import 'home_screen.dart';
 import 'library_services_screen.dart';
 import 'more/about/about_screen.dart';
@@ -21,11 +21,13 @@ import 'more/opening_hours_screen.dart';
 import 'more/profile_screen.dart';
 import 'more/request_password_change_screen.dart';
 import 'opac.dart';
+import 'space_detail_screen.dart';
+import 'spaces_screen.dart';
 
 /// Root navigation shell: bottom tab bar (Home / Search / Services /
-/// Spaces / More), with a nested Navigator inside the More tab. Tabs are
-/// kept alive via IndexedStack so switching tabs preserves each screen's
-/// state.
+/// Spaces / More), with nested Navigators inside the Spaces and More tabs.
+/// Tabs are kept alive via IndexedStack so switching tabs preserves each
+/// screen's state.
 class RootShell extends StatefulWidget {
   const RootShell({super.key});
 
@@ -35,9 +37,15 @@ class RootShell extends StatefulWidget {
 
 class _RootShellState extends State<RootShell> {
   int _index = AppTabs.home;
+  GlobalKey<NavigatorState> _spacesNavigatorKey = GlobalKey<NavigatorState>();
   GlobalKey<NavigatorState> _moreNavigatorKey = GlobalKey<NavigatorState>();
   String? _opacQuery;
   int _opacQueryGeneration = 0;
+
+  /// Drop the Spaces stack instantly by remounting its Navigator.
+  void _resetSpacesStack() {
+    _spacesNavigatorKey = GlobalKey<NavigatorState>();
+  }
 
   /// Drop the More stack instantly by remounting its Navigator.
   /// Avoids the pop-animation flash of the previous nested screen.
@@ -46,9 +54,16 @@ class _RootShellState extends State<RootShell> {
   }
 
   void _goToTab(int index) {
-    // Selecting More always lands on the menu root — both when switching
-    // from another tab (stack was preserved by IndexedStack) and when
-    // re-tapping More while nested.
+    // Selecting Spaces or More always lands on the menu root — both when
+    // switching from another tab and when re-tapping while nested.
+    if (index == AppTabs.spaces) {
+      final needsReset = _spacesNavigatorKey.currentState?.canPop() ?? false;
+      setState(() {
+        _index = index;
+        if (needsReset) _resetSpacesStack();
+      });
+      return;
+    }
     if (index == AppTabs.more) {
       final needsReset = _moreNavigatorKey.currentState?.canPop() ?? false;
       setState(() {
@@ -167,6 +182,28 @@ class _RootShellState extends State<RootShell> {
     return _buildMoreRoute(settings);
   }
 
+  Route<dynamic> _onGenerateSpacesRoute(RouteSettings settings) {
+    final name = settings.name;
+    if (name != null && name.startsWith('${SpacesRoutes.detail}/')) {
+      final id = name.substring(SpacesRoutes.detail.length + 1);
+      final space = librarySpaceById(id);
+      if (space != null) {
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => Scaffold(
+            appBar: AppBar(title: Text(space.title)),
+            body: SpaceDetailScreen(space: space),
+          ),
+        );
+      }
+    }
+
+    return MaterialPageRoute<void>(
+      settings: settings,
+      builder: (_) => const SpacesScreen(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = useTheme(context);
@@ -178,7 +215,11 @@ class _RootShellState extends State<RootShell> {
         queryGeneration: _opacQueryGeneration,
       ),
       const LibraryServicesScreen(),
-      const ExploreSpacesScreen(),
+      Navigator(
+        key: _spacesNavigatorKey,
+        initialRoute: SpacesRoutes.root,
+        onGenerateRoute: _onGenerateSpacesRoute,
+      ),
       Navigator(
         key: _moreNavigatorKey,
         initialRoute: MoreRoutes.root,
@@ -186,16 +227,25 @@ class _RootShellState extends State<RootShell> {
       ),
     ];
 
-    final canPopMore = _index == AppTabs.more && (_moreNavigatorKey.currentState?.canPop() ?? false);
+    final canPopSpaces =
+        _index == AppTabs.spaces &&
+        (_spacesNavigatorKey.currentState?.canPop() ?? false);
+    final canPopMore =
+        _index == AppTabs.more &&
+        (_moreNavigatorKey.currentState?.canPop() ?? false);
+    final canPopNested = canPopSpaces || canPopMore;
 
     return AppTabScope(
       goToTab: _goToTab,
       openSearch: _openSearch,
       openMoreRoute: _openMoreRoute,
       child: PopScope(
-        canPop: !canPopMore,
+        canPop: !canPopNested,
         onPopInvokedWithResult: (didPop, result) {
-          if (!didPop && canPopMore) {
+          if (didPop) return;
+          if (canPopSpaces) {
+            _spacesNavigatorKey.currentState?.maybePop();
+          } else if (canPopMore) {
             _moreNavigatorKey.currentState?.maybePop();
           }
         },
