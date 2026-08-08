@@ -1,6 +1,7 @@
-import 'package:flutter/widgets.dart';
-import 'package:flutter_lucide/flutter_lucide.dart';
+import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../data/library_guides.dart';
 import '../../theme/theme.dart';
 import '../../widgets/ui.dart';
 
@@ -20,24 +21,18 @@ Widget _groupedList(SemanticColors colors, List<Widget> rows) {
   );
 }
 
-class _Guide {
-  final String label;
-  final IconData icon;
-  const _Guide(this.label, this.icon);
-}
-
-/// Static placeholder list — guide content/documents to be linked in later.
-/// Kept local to this screen (not in /data), matching the original.
-const List<_Guide> _guides = [
-  _Guide('How to Use OPAC', LucideIcons.search),
-  _Guide('Borrowing Policy Guide', LucideIcons.book),
-  _Guide('Thesis Submission Guide', LucideIcons.file_text),
-  _Guide('Digital Library Access Guide', LucideIcons.globe),
-];
-
 /// Guides and Documentation screen. Mirrors app/(tabs)/more/guides.js.
 class GuidesScreen extends StatelessWidget {
   const GuidesScreen({super.key});
+
+  Future<void> _openGuide(BuildContext context, LibraryGuideLink guide) async {
+    final confirmed = await showRedirectConfirmPopup(
+      context,
+      message: guide.confirmMessage,
+    );
+    if (!confirmed) return;
+    await launchUrl(Uri.parse(guide.url), mode: LaunchMode.externalApplication);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,15 +40,30 @@ class GuidesScreen extends StatelessWidget {
 
     return ScreenContainer(
       scroll: true,
-      child: _groupedList(colors, [
-        for (var i = 0; i < _guides.length; i++)
-          ListRow(
-            icon: _guides[i].icon,
-            label: _guides[i].label,
-            showChevron: false,
-            showDivider: i < _guides.length - 1,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(bottom: AppSpacing.lg),
+            child: AppText(
+              'Download any guide provided by Junaid Zaidi Library',
+              variant: 'bodySmall',
+              tone: 'secondary',
+            ),
           ),
-      ]),
+          _groupedList(colors, [
+            for (var i = 0; i < libraryGuides.length; i++)
+              ListRow(
+                icon: libraryGuides[i].icon,
+                label: libraryGuides[i].title,
+                accent: libraryGuides[i].accent,
+                opensExternally: libraryGuides[i].opensExternally,
+                onTap: () => _openGuide(context, libraryGuides[i]),
+                showDivider: i < libraryGuides.length - 1,
+              ),
+          ]),
+        ],
+      ),
     );
   }
 }

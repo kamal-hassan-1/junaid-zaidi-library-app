@@ -49,8 +49,3 @@ New-Composite -OutFile (Join-Path $outDir 'app_icon.png') -Canvas 1024 -LogoSize
 
 # Adaptive-icon foreground: transparent around the crest
 New-Composite -OutFile (Join-Path $outDir 'app_icon_foreground.png') -Canvas 1024 -LogoSize 596
-
-# Android 12+ splash icon: TRANSPARENT canvas + crest only.
-# Circle fill comes from icon_background_color in pubspec (light/dark),
-# never from pixels baked into this PNG.
-New-Composite -OutFile (Join-Path $outDir 'splash_logo_android12.png') -Canvas 1152 -LogoSize 660

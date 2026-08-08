@@ -75,11 +75,6 @@ final List<LibraryImage> libraryImages = [
     caption: 'Coffee shop',
   ),
   const LibraryImage(
-    key: 'public-computer-section',
-    assetPath: 'assets/public-computer-section.jpg',
-    caption: 'Public computer section',
-  ),
-  const LibraryImage(
     key: 'public-computer-cubicles',
     assetPath: 'assets/public-computer-cubicles.jpg',
     caption: 'Public computer cubicles',
@@ -88,11 +83,6 @@ final List<LibraryImage> libraryImages = [
     key: 'front-desk',
     assetPath: 'assets/front-desk.jpg',
     caption: 'Front desk',
-  ),
-  const LibraryImage(
-    key: 'library-drop-box',
-    assetPath: 'assets/library-drop-box.jpg',
-    caption: 'Book drop box',
   ),
   const LibraryImage(
     key: 'art-gallery-1',
@@ -108,11 +98,6 @@ final List<LibraryImage> libraryImages = [
     key: 'phd-research-lab-1',
     assetPath: 'assets/phd-research-lab-1.jpg',
     caption: 'PhD research lab',
-  ),
-  const LibraryImage(
-    key: 'book-lending-software-opened-on-desktop',
-    assetPath: 'assets/book-lending-software-opened-on-desktop.jpg',
-    caption: 'Book lending desk',
   ),
 ];
 
@@ -135,7 +120,6 @@ const String logoImagePath = 'assets/logo.png';
 const String homeBackgroundImagePath = 'assets/library-front-view.jpg';
 
 const String libraryGroundFloorImagePath = 'assets/library-ground-floor.jpg';
-const String libraryFrontViewImagePath = 'assets/library-front-view.jpg';
 const String libraryFrontLeftAngleImagePath =
     'assets/library-front-leftAngle-view.jpg';
 const String holdingPhoneImagePath = 'assets/holding_phone.png';
