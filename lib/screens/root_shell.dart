@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../data/library_spaces.dart';
@@ -41,6 +42,39 @@ class _RootShellState extends State<RootShell> {
   GlobalKey<NavigatorState> _moreNavigatorKey = GlobalKey<NavigatorState>();
   String? _opacQuery;
   int _opacQueryGeneration = 0;
+  DateTime? _lastBackPressAt;
+
+  bool _canPopSpacesNavigator() =>
+      _spacesNavigatorKey.currentState?.canPop() ?? false;
+
+  bool _canPopMoreNavigator() =>
+      _moreNavigatorKey.currentState?.canPop() ?? false;
+
+  void _handleBackPress() {
+    if (_index == AppTabs.spaces && _canPopSpacesNavigator()) {
+      _spacesNavigatorKey.currentState!.pop();
+      return;
+    }
+    if (_index == AppTabs.more && _canPopMoreNavigator()) {
+      _moreNavigatorKey.currentState!.pop();
+      return;
+    }
+
+    final now = DateTime.now();
+    if (_lastBackPressAt == null ||
+        now.difference(_lastBackPressAt!) > const Duration(seconds: 2)) {
+      _lastBackPressAt = now;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Press back again to exit'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    SystemNavigator.pop();
+  }
 
   /// Drop the Spaces stack instantly by remounting its Navigator.
   void _resetSpacesStack() {
@@ -227,27 +261,15 @@ class _RootShellState extends State<RootShell> {
       ),
     ];
 
-    final canPopSpaces =
-        _index == AppTabs.spaces &&
-        (_spacesNavigatorKey.currentState?.canPop() ?? false);
-    final canPopMore =
-        _index == AppTabs.more &&
-        (_moreNavigatorKey.currentState?.canPop() ?? false);
-    final canPopNested = canPopSpaces || canPopMore;
-
     return AppTabScope(
       goToTab: _goToTab,
       openSearch: _openSearch,
       openMoreRoute: _openMoreRoute,
       child: PopScope(
-        canPop: !canPopNested,
+        canPop: false,
         onPopInvokedWithResult: (didPop, result) {
           if (didPop) return;
-          if (canPopSpaces) {
-            _spacesNavigatorKey.currentState?.maybePop();
-          } else if (canPopMore) {
-            _moreNavigatorKey.currentState?.maybePop();
-          }
+          _handleBackPress();
         },
         child: Scaffold(
           body: IndexedStack(index: _index, children: tabs),

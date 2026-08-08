@@ -85,12 +85,8 @@ class _MoreScreenState extends State<MoreScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(bottom: AppSpacing.ms),
-            child: Heading(level: 5, tone: 'tertiary', text: 'Patron Profile'),
-          ),
           Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+            padding: const EdgeInsets.only(bottom: AppSpacing.lg, top: AppSpacing.ms),
             child: AppCard(
               onTap: () => Navigator.of(context).pushNamed(MoreRoutes.profile),
               child: _buildHeroRow(colors, isGuest),

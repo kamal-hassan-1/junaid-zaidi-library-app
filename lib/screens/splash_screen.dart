@@ -18,7 +18,7 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  static const double _logoSize = 140;
+  static const double _logoSize = 120;
 
   @override
   void initState() {
@@ -32,90 +32,64 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = useTheme(context);
-    final bottomPad = MediaQuery.paddingOf(context).bottom + AppSpacing.md;
+    final bottomPad = MediaQuery.paddingOf(context).bottom + AppSpacing.xl;
 
     return Scaffold(
       backgroundColor: colors.background.primary,
-      body: Column(
-        children: [
-          Expanded(
-            child: SafeArea(
-              bottom: false,
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppGrid.margin,
-                    0,
-                    AppGrid.margin,
-                    AppSpacing.xl,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Heading(
-                        text: 'Junaid Zaidi Library',
-                        level: 4,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: colors.text.primary,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      AppText(
-                        'COMSATS University Islamabad',
-                        variant: 'bodyBase',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: colors.text.secondary),
-                      ),
-                    ],
-                  ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppGrid.margin),
+          child: Column(
+            children: [
+              const Spacer(flex: 2),
+              Image(
+                image: const AssetImage(logoImagePath),
+                width: _logoSize,
+                height: _logoSize,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
+                gaplessPlayback: true,
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              Heading(
+                text: 'Junaid Zaidi Library',
+                level: 4,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: colors.text.primary,
                 ),
               ),
-            ),
-          ),
-          Image(
-            image: const AssetImage(logoImagePath),
-            width: _logoSize,
-            height: _logoSize,
-            fit: BoxFit.contain,
-            filterQuality: FilterQuality.high,
-            gaplessPlayback: true,
-          ),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                AppGrid.margin,
-                AppSpacing.lg,
-                AppGrid.margin,
-                bottomPad,
+              const SizedBox(height: AppSpacing.sm),
+              AppText(
+                'COMSATS University Islamabad',
+                variant: 'bodyBase',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: colors.text.secondary),
               ),
-              child: Column(
-                children: [
-                  AppText(
-                    'Knowledge • Research • Innovation',
-                    variant: 'bodyBase',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: colors.text.secondary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const Spacer(),
-                  SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.4,
-                      color: colors.brand,
-                    ),
-                  ),
-                ],
+              const SizedBox(height: AppSpacing.lg),
+              AppText(
+                'Knowledge • Research • Innovation',
+                variant: 'bodyBase',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: colors.text.secondary,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
+              const Spacer(flex: 3),
+              SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  color: colors.brand,
+                ),
+              ),
+              SizedBox(height: bottomPad),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
