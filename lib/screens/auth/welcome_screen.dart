@@ -14,82 +14,75 @@ class WelcomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = useTheme(context);
     final shadow = cardShadowDecoration(colors);
-    final heroHeight = MediaQuery.sizeOf(context).height * 0.48;
 
     return Stack(
       fit: StackFit.expand,
       children: [
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          height: heroHeight,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Image.asset(
-                portraitLibraryImagePath,
-                fit: BoxFit.cover,
-                alignment: Alignment.center,
+        Image.asset(
+          portraitLibraryImagePath,
+          fit: BoxFit.cover,
+          alignment: Alignment.center,
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha: 0.48),
+                Colors.black.withValues(alpha: 0.68),
+              ],
+            ),
+          ),
+        ),
+        SafeArea(
+          bottom: false,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppGrid.margin,
+                AppSpacing.xxl,
+                AppGrid.margin,
+                0,
               ),
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.48),
-                      Colors.black.withValues(alpha: 0.68),
-                    ],
-                  ),
-                ),
-              ),
-              SafeArea(
-                bottom: false,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppGrid.margin),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 84,
-                          height: 84,
-                          padding: const EdgeInsets.all(AppSpacing.sm),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(AppRadius.lg),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x33000000),
-                                offset: Offset(0, 8),
-                                blurRadius: 20,
-                              ),
-                            ],
-                          ),
-                          child: const Image(
-                            image: AssetImage(logoImagePath),
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        AppText(
-                          'Junaid Zaidi Library',
-                          variant: 'h4',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 30,
-                            height: 1.2,
-                          ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 120,
+                    height: 120,
+                    padding: const EdgeInsets.all(AppSpacing.sm),
+                    decoration: BoxDecoration(
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x33000000),
+                          offset: Offset(0, 8),
+                          blurRadius: 20,
                         ),
                       ],
                     ),
+                    child: const Image(
+                      image: AssetImage(logoImagePath),
+                      fit: BoxFit.contain,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: AppSpacing.md),
+                  AppText(
+                    'Junaid Zaidi Library',
+                    variant: 'h4',
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 28,
+                      height: 1.2,
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
         Positioned(
@@ -114,6 +107,7 @@ class WelcomeScreen extends StatelessWidget {
             child: SafeArea(
               top: false,
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   AppText(
