@@ -6,6 +6,7 @@ import '../../models/profile_data.dart';
 import '../../navigation/auth_scope.dart';
 import '../../navigation/routes.dart';
 import '../../services/profile_loader.dart';
+import '../../navigation/theme_scope.dart';
 import '../../theme/theme.dart';
 import '../../widgets/ui.dart';
 
@@ -110,6 +111,40 @@ class _MoreScreenState extends State<MoreScreen> {
                 ],
               ),
             ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(bottom: AppSpacing.ms),
+                  child: Heading(
+                    level: 5,
+                    tone: 'tertiary',
+                    text: 'Appearance',
+                  ),
+                ),
+                groupedList(colors, [
+                  ListRow(
+                    icon: ThemeScope.of(context).isDarkMode
+                        ? LucideIcons.moon
+                        : LucideIcons.sun,
+                    label: 'Dark mode',
+                    secondaryLabel: 'Use dark gray theme',
+                    accent: AppAccent.brand,
+                    showChevron: false,
+                    showDivider: false,
+                    badge: Switch.adaptive(
+                      value: ThemeScope.of(context).isDarkMode,
+                      onChanged: (value) {
+                        ThemeScope.of(context).setDarkMode(value);
+                      },
+                    ),
+                  ),
+                ]),
+              ],
+            ),
+          ),
           AppButton(
             label: isGuest ? 'Sign Up / Sign In' : 'Log Out',
             variant: 'secondary',

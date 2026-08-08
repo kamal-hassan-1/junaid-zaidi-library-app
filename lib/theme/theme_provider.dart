@@ -19,21 +19,20 @@ class _InheritedAppTheme extends InheritedWidget {
   bool updateShouldNotify(_InheritedAppTheme oldWidget) => oldWidget.colors != colors;
 }
 
-/// Resolves light/dark semantic colors from the OS (or Material) brightness.
-///
-/// Prefer mounting this inside [MaterialApp.builder] so [brightness] comes from
-/// `ThemeMode.system`. If [brightness] is omitted, falls back to
-/// [MediaQuery.platformBrightnessOf].
+/// Supplies semantic colors from the app's explicit light/dark choice.
 class AppThemeProvider extends StatelessWidget {
   final Widget child;
-  final Brightness? brightness;
+  final bool isDarkMode;
 
-  const AppThemeProvider({super.key, required this.child, this.brightness});
+  const AppThemeProvider({
+    super.key,
+    required this.child,
+    required this.isDarkMode,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final resolved = brightness ?? MediaQuery.platformBrightnessOf(context);
-    final colors = resolved == Brightness.dark ? darkColors : lightColors;
+    final colors = isDarkMode ? darkColors : lightColors;
     return _InheritedAppTheme(colors: colors, child: child);
   }
 }

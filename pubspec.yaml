@@ -179,15 +179,15 @@ flutter_launcher_icons:
 # rewrites them.
 flutter_native_splash:
   color: "#F8F9FA"
-  color_dark: "#0A1018"
+  color_dark: "#141C26"
   android: true
   ios: true
   web: false
   fullscreen: false
   android_12:
     color: "#F8F9FA"
-    color_dark: "#0A1018"
+    color_dark: "#141C26"
     image: "assets/icon/splash_transparent.png"
     image_dark: "assets/icon/splash_transparent.png"
     icon_background_color: "#F8F9FA"
-    icon_background_color_dark: "#0A1018"
+    icon_background_color_dark: "#141C26"

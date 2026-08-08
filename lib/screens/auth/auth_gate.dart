@@ -8,7 +8,6 @@ import '../../services/firebase_auth_service.dart';
 import '../../services/koha_auth_service.dart';
 import '../../services/onboarding_prefs.dart';
 import '../../services/secure_storage_service.dart';
-import '../../theme/semantic/light.dart';
 import '../../theme/theme.dart';
 import '../../widgets/ui.dart';
 import '../onboarding/onboarding_screen.dart';
@@ -204,7 +203,10 @@ class _AuthGateState extends State<AuthGate> {
         page = const _ComingSoonScreen();
     }
     return MaterialPageRoute(
-      builder: (_) => Scaffold(backgroundColor: lightColors.background.primary, body: page),
+      builder: (context) => Scaffold(
+        backgroundColor: useTheme(context).background.primary,
+        body: page,
+      ),
       settings: settings,
     );
   }

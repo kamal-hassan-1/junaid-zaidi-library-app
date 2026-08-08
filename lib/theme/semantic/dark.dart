@@ -1,7 +1,7 @@
 import '../tokens/colors.dart';
 import 'semantic_colors.dart';
 
-/// Dark mode semantic mapping.
+/// Dark mode semantic mapping — soft dark gray surfaces (not near-black).
 ///
 /// Key rule: brand and status colors do NOT shift between themes — Base 700,
 /// Red 600, Green 600, Yellow 600 are identical in both light and dark. Only
@@ -9,11 +9,11 @@ import 'semantic_colors.dart';
 final SemanticColors darkColors = SemanticColors(
   mode: 'dark',
   background: BackgroundTiers(
-    primary: AppPalette.gray[950]!,
-    secondary: AppPalette.gray[900]!,
-    tertiary: AppPalette.gray[800]!,
+    primary: AppPalette.gray[900]!,
+    secondary: AppPalette.gray[800]!,
+    tertiary: AppPalette.gray[700]!,
   ),
-  border: AppPalette.gray[700]!,
+  border: AppPalette.gray[600]!,
   icon: AppPalette.gray[400]!,
   text: TextTiers(
     primary: AppPalette.gray[50]!,
@@ -45,7 +45,7 @@ final SemanticColors darkColors = SemanticColors(
     ),
   ),
   snackbar: SnackbarColors(
-    background: AppPalette.gray[800]!,
+    background: AppPalette.gray[700]!,
     primaryText: AppPalette.gray[50]!,
     secondaryText: AppPalette.gray[300]!,
     actionText: AppPalette.gray[50]!,

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'firebase_bootstrap.dart';
+import 'navigation/theme_scope.dart';
 import 'screens/auth/auth_gate.dart';
+import 'services/theme_prefs.dart';
 import 'theme/semantic/dark.dart';
 import 'theme/semantic/light.dart';
 import 'theme/theme.dart';
@@ -18,7 +20,9 @@ void main() async {
   // so Android 12+ isn't stuck on a blank bg during SDK init.
   startFirebase();
 
-  runApp(const JunaidZaidiLibraryApp());
+  final isDarkMode = await ThemePrefs().isDarkMode();
+
+  runApp(JunaidZaidiLibraryApp(initialDarkMode: isDarkMode));
 }
 
 ThemeData _materialTheme(SemanticColors colors) {
@@ -48,27 +52,51 @@ ThemeData _materialTheme(SemanticColors colors) {
 /// `home` points at AuthGate — AuthGate decides which shell to show based
 /// on Koha/Firebase session state.
 ///
-/// Theme follows the OS light/dark setting (`ThemeMode.system`). Semantic
-/// colors come from [AppThemeProvider] inside [MaterialApp.builder] so they
-/// stay in sync with Material's resolved brightness.
-class JunaidZaidiLibraryApp extends StatelessWidget {
-  const JunaidZaidiLibraryApp({super.key});
+/// Theme defaults to light and is toggled in More — it does not follow the
+/// OS appearance setting.
+class JunaidZaidiLibraryApp extends StatefulWidget {
+  final bool initialDarkMode;
+
+  const JunaidZaidiLibraryApp({super.key, required this.initialDarkMode});
+
+  @override
+  State<JunaidZaidiLibraryApp> createState() => _JunaidZaidiLibraryAppState();
+}
+
+class _JunaidZaidiLibraryAppState extends State<JunaidZaidiLibraryApp> {
+  late bool _isDarkMode;
+
+  @override
+  void initState() {
+    super.initState();
+    _isDarkMode = widget.initialDarkMode;
+  }
+
+  Future<void> _setDarkMode(bool enabled) async {
+    if (_isDarkMode == enabled) return;
+    setState(() => _isDarkMode = enabled);
+    await ThemePrefs().setDarkMode(enabled);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Junaid Zaidi Library',
-      debugShowCheckedModeBanner: false,
-      themeMode: ThemeMode.system,
-      theme: _materialTheme(lightColors),
-      darkTheme: _materialTheme(darkColors),
-      builder: (context, child) {
-        return AppThemeProvider(
-          brightness: Theme.of(context).brightness,
-          child: child ?? const SizedBox.shrink(),
-        );
-      },
-      home: const AuthGate(),
+    return ThemeScope(
+      isDarkMode: _isDarkMode,
+      setDarkMode: _setDarkMode,
+      child: MaterialApp(
+        title: 'Junaid Zaidi Library',
+        debugShowCheckedModeBanner: false,
+        themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
+        theme: _materialTheme(lightColors),
+        darkTheme: _materialTheme(darkColors),
+        builder: (context, child) {
+          return AppThemeProvider(
+            isDarkMode: _isDarkMode,
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
+        home: const AuthGate(),
+      ),
     );
   }
 }
