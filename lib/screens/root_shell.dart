@@ -6,13 +6,14 @@ import '../navigation/routes.dart';
 import '../theme/theme.dart';
 import 'explore_spaces_screen.dart';
 import 'home_screen.dart';
-import 'library_resources_screen.dart';
+import 'library_services_screen.dart';
 import 'more/about/about_screen.dart';
 import 'more/about/facts_screen.dart';
 import 'more/about/floor_plan_screen.dart';
 import 'more/about/rules_screen.dart';
 import 'more/about/staff_screen.dart';
 import 'more/contact_us_screen.dart';
+import 'more/forms_screen.dart';
 import 'more/guides_screen.dart';
 import 'more/map_screen.dart';
 import 'more/more_screen.dart';
@@ -95,6 +96,7 @@ class _RootShellState extends State<RootShell> {
     MoreRoutes.profile: 'Profile',
     MoreRoutes.changePassword: 'Request Password Change',
     MoreRoutes.guides: 'Guides & Documentation',
+    MoreRoutes.forms: 'Forms',
     MoreRoutes.map: 'Junaid Zaidi on Maps',
     MoreRoutes.contact: 'Contact Us',
     MoreRoutes.openingHours: 'Opening Hours',
@@ -113,6 +115,8 @@ class _RootShellState extends State<RootShell> {
         return const RequestPasswordChangeScreen();
       case MoreRoutes.guides:
         return const GuidesScreen();
+      case MoreRoutes.forms:
+        return const FormsScreen();
       case MoreRoutes.map:
         return const MapScreen();
       case MoreRoutes.contact:
@@ -173,7 +177,7 @@ class _RootShellState extends State<RootShell> {
         initialQuery: _opacQuery,
         queryGeneration: _opacQueryGeneration,
       ),
-      const LibraryResourcesScreen(),
+      const LibraryServicesScreen(),
       const ExploreSpacesScreen(),
       Navigator(
         key: _moreNavigatorKey,

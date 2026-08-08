@@ -10,6 +10,10 @@ import 'heading.dart';
 const String kLibraryWebsiteRedirectMessage =
     'This action will redirect you to the Junaid Zaidi Library website.';
 
+/// Default copy for other external redirects (e.g. Koha thesis catalog).
+const String kExternalRedirectMessage =
+    'This action will redirect you to an external website.';
+
 /// Shows a branded confirm dialog before an action that leaves the current
 /// screen (external URL, dialer, mail, etc.).
 ///

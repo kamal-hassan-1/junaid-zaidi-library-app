@@ -57,6 +57,14 @@ final List<MoreMenuItem> moreMenu = [
     accent: AppAccent.success,
   ),
   const MoreMenuItem(
+    key: 'forms',
+    label: 'Forms',
+    icon: LucideIcons.clipboard_list,
+    routeName: MoreRoutes.forms,
+    section: MoreMenuSection.library,
+    accent: AppAccent.warning,
+  ),
+  const MoreMenuItem(
     key: 'map',
     label: 'Junaid Zaidi on Maps',
     icon: LucideIcons.map,

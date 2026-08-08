@@ -96,11 +96,9 @@ class ResourceCard extends StatelessWidget {
     );
   }
 }
-/// Library Resources screen's one-per-row shortcut card. Same visual
-/// anatomy as [ResourceCard] (accent icon chip, card surface, shadow) but
-/// laid out horizontally full-width instead of ~48%-width in a grid pair,
-/// since Library Resources shows each resource on its own row rather than
-/// a 2-column grid.
+/// Services screen's one-per-row shortcut card. Same visual anatomy as
+/// [ResourceCard] (accent icon chip, card surface, shadow) but laid out
+/// horizontally full-width instead of ~48%-width in a grid pair.
 class ResourceRow extends StatelessWidget {
   final IconData icon;
   final String title;
