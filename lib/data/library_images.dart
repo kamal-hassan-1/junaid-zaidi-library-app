@@ -123,3 +123,4 @@ const String libraryFrontLeftAngleImagePath =
 const String holdingPhoneImagePath = 'assets/holding_phone.png';
 const String librarianSvgImagePath = 'assets/librarian.svg';
 const String portraitLibraryImagePath = 'assets/portrait-library.jpg';
+const String frontDeskImagePath = 'assets/front-desk.jpg';

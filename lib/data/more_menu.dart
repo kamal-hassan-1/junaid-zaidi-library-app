@@ -41,6 +41,14 @@ final List<MoreMenuItem> moreMenu = [
     accent: AppAccent.brand,
   ),
   const MoreMenuItem(
+    key: 'opening-hours',
+    label: 'Opening Hours',
+    icon: LucideIcons.clock,
+    routeName: MoreRoutes.openingHours,
+    section: MoreMenuSection.library,
+    accent: AppAccent.error,
+  ),
+  const MoreMenuItem(
     key: 'guides',
     label: 'Guides and Documentation',
     icon: LucideIcons.file,

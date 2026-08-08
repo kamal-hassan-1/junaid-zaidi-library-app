@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../data/home_resources.dart';
 import '../data/library_images.dart';
 import '../navigation/app_tab_scope.dart';
+import '../navigation/auth_scope.dart';
+import '../navigation/routes.dart';
 import '../theme/theme.dart';
 import '../widgets/ui.dart';
 import 'opac.dart';
 
-/// Home tab: hero banner, search box, and the 2-column resource shortcut
-/// grid. Mirrors app/(tabs)/index.js.
+const String _hecDigitalLibraryUrl =
+    'https://library.comsats.edu.pk/hec-digital-library.aspx';
+const String _libraryWebsiteUrl = 'https://library.comsats.edu.pk/';
+
+/// Home tab: hero banner, search box, and the 2-column quick-link cards.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -28,6 +34,50 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (_) => OpacScreen(initialQuery: resolvedQuery),
       ),
     );
+  }
+
+  Future<void> _openExternalUrl(String url) async {
+    final confirmed = await showRedirectConfirmPopup(
+      context,
+      message: kLibraryWebsiteRedirectMessage,
+    );
+    if (!confirmed || !mounted) return;
+    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _openPatronProfile() async {
+    final auth = AuthScope.of(context);
+    if (auth.isGuest) {
+      final go = await showRedirectConfirmPopup(
+        context,
+        title: 'Sign in required',
+        message:
+            'Sign up or log in to view your patron profile. Guests do not have a library account profile.',
+        confirmLabel: 'Sign Up / Sign In',
+      );
+      if (go && mounted) {
+        await auth.onLogout();
+      }
+      return;
+    }
+    AppTabScope.of(context).openMoreRoute(MoreRoutes.profile);
+  }
+
+  Future<void> _onResourceTap(HomeResource resource) async {
+    switch (resource.action) {
+      case HomeResourceAction.opac:
+        _openOpac();
+      case HomeResourceAction.patronProfile:
+        await _openPatronProfile();
+      case HomeResourceAction.hecDigitalLibrary:
+        await _openExternalUrl(_hecDigitalLibraryUrl);
+      case HomeResourceAction.openingHours:
+        AppTabScope.of(context).openMoreRoute(MoreRoutes.openingHours);
+      case HomeResourceAction.accessWebsite:
+        await _openExternalUrl(_libraryWebsiteUrl);
+      case HomeResourceAction.aboutJzl:
+        AppTabScope.of(context).openMoreRoute(MoreRoutes.about);
+    }
   }
 
   @override
@@ -121,7 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
           const Padding(
             padding: EdgeInsets.only(top: AppSpacing.lg, bottom: AppSpacing.ms),
-            child: Heading(level: 5, text: 'Resources'),
+            child: Heading(level: 5, text: 'Quick Links'),
           ),
 
           LayoutBuilder(
@@ -147,11 +197,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               title: resource.title,
                               subtitle: resource.subtitle,
                               accent: resource.accent,
-                              onTap: resource.opensExploreSpaces
-                                  ? () => AppTabScope.of(context).goToTab(AppTabs.exploreSpaces)
-                                  : resource.title == 'OPAC'
-                                      ? () => _openOpac()
-                                      : null,
+                              onTap: () => _onResourceTap(resource),
                             ),
                           ),
                       ],
@@ -159,7 +205,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 );
               }
-              return Column(crossAxisAlignment: CrossAxisAlignment.start, children: rows);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: rows,
+              );
             },
           ),
         ],

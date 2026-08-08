@@ -17,7 +17,16 @@ class AppTabs {
 class AppTabScope extends InheritedWidget {
   final ValueChanged<int> goToTab;
 
-  const AppTabScope({super.key, required this.goToTab, required super.child});
+  /// Switch to the More tab and push [routeName] on More's nested Navigator
+  /// (e.g. [MoreRoutes.about]), so stack titles and named sub-routes work.
+  final void Function(String routeName) openMoreRoute;
+
+  const AppTabScope({
+    super.key,
+    required this.goToTab,
+    required this.openMoreRoute,
+    required super.child,
+  });
 
   static AppTabScope of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<AppTabScope>();
@@ -26,5 +35,7 @@ class AppTabScope extends InheritedWidget {
   }
 
   @override
-  bool updateShouldNotify(AppTabScope oldWidget) => oldWidget.goToTab != goToTab;
+  bool updateShouldNotify(AppTabScope oldWidget) =>
+      oldWidget.goToTab != goToTab ||
+      oldWidget.openMoreRoute != openMoreRoute;
 }

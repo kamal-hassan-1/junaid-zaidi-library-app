@@ -16,6 +16,7 @@ import 'more/contact_us_screen.dart';
 import 'more/guides_screen.dart';
 import 'more/map_screen.dart';
 import 'more/more_screen.dart';
+import 'more/opening_hours_screen.dart';
 import 'more/profile_screen.dart';
 import 'more/request_password_change_screen.dart';
 
@@ -37,6 +38,16 @@ class _RootShellState extends State<RootShell> {
 
   void _goToTab(int index) => setState(() => _index = index);
 
+  void _openMoreRoute(String routeName) {
+    setState(() => _index = AppTabs.more);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final nav = _moreNavigatorKey.currentState;
+      if (nav == null) return;
+      nav.popUntil((route) => route.isFirst);
+      nav.pushNamed(routeName);
+    });
+  }
+
   // Mirrors more/_layout.js's per-screen `title` options. The "More" tab
   // root has headerShown: false there (it renders its own in-content
   // heading), so it's the only route left without a wrapping AppBar here.
@@ -46,6 +57,7 @@ class _RootShellState extends State<RootShell> {
     MoreRoutes.guides: 'Guides & Documentation',
     MoreRoutes.map: 'Junaid Zaidi on Maps',
     MoreRoutes.contact: 'Contact Us',
+    MoreRoutes.openingHours: 'Opening Hours',
     MoreRoutes.about: 'About',
     MoreRoutes.aboutFacts: 'Facts',
     MoreRoutes.aboutRules: 'Rules & Regulations',
@@ -66,6 +78,8 @@ class _RootShellState extends State<RootShell> {
         page = const MapScreen();
       case MoreRoutes.contact:
         page = const ContactUsScreen();
+      case MoreRoutes.openingHours:
+        page = const OpeningHoursScreen();
       case MoreRoutes.about:
         page = const AboutScreen();
       case MoreRoutes.aboutFacts:
@@ -110,6 +124,7 @@ class _RootShellState extends State<RootShell> {
 
     return AppTabScope(
       goToTab: _goToTab,
+      openMoreRoute: _openMoreRoute,
       child: PopScope(
         canPop: !canPopMore,
         onPopInvokedWithResult: (didPop, result) {
