@@ -5,9 +5,13 @@ import '../models/student_request.dart';
 import 'firestore_service.dart';
 
 class FirebaseAuthService {
-  final FirebaseAuth _auth;
+  final FirebaseAuth? _authOverride;
 
-  FirebaseAuthService({FirebaseAuth? auth}) : _auth = auth ?? FirebaseAuth.instance;
+  /// Does not touch [FirebaseAuth.instance] until first use, so AuthGate can
+  /// be constructed before [Firebase.initializeApp] finishes.
+  FirebaseAuthService({FirebaseAuth? auth}) : _authOverride = auth;
+
+  FirebaseAuth get _auth => _authOverride ?? FirebaseAuth.instance;
 
   User? get currentUser => _auth.currentUser;
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 
+import '../../firebase_bootstrap.dart' show firebaseReady;
 import '../../navigation/auth_scope.dart';
 import '../../navigation/routes.dart';
 import '../../services/firebase_auth_service.dart';
@@ -12,6 +13,7 @@ import '../../theme/theme.dart';
 import '../../widgets/ui.dart';
 import '../onboarding/onboarding_screen.dart';
 import '../root_shell.dart';
+import '../splash_screen.dart';
 import 'email_login_screen.dart';
 import 'signup_form_screen.dart';
 import 'welcome_screen.dart';
@@ -19,9 +21,8 @@ import 'welcome_screen.dart';
 enum _AuthState { loading, onboarding, authenticated, guest, signedOut }
 
 /// Decides between the auth flow and the app itself. Five states:
-///  - loading: still checking on boot — native OS splash is removed on the
-///    first Flutter frame; if session restore is still running, only a
-///    centered spinner is shown (no branded Flutter splash).
+///  - loading: [SplashScreen] over a matching plate; native OS splash is
+///    background-only and is removed when SplashScreen paints.
 ///  - onboarding: first launch — [OnboardingScreen] until Get Started / Skip.
 ///  - authenticated: BOTH a Koha session AND a Firebase session exist —
 ///    see _checkSession below for why "both" is required, not either.
@@ -56,9 +57,17 @@ class _AuthGateState extends State<AuthGate> {
   /// Session outcome while onboarding may still need to run first.
   _AuthState? _pendingAfterOnboarding;
 
+  /// Splash stays mounted over the destination until it fades out.
+  bool _splashMounted = true;
+  double _splashOpacity = 1;
+
   @override
   void initState() {
     super.initState();
+    // Safety: dismiss native plate even if SplashScreen is slow to mount.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      FlutterNativeSplash.remove();
+    });
     _checkSession();
   }
 
@@ -71,39 +80,81 @@ class _AuthGateState extends State<AuthGate> {
   /// the safest move is to clear both and force a clean re-login rather
   /// than silently trusting a half-authenticated state.
   Future<void> _checkSession() async {
-    final results = await Future.wait([
-      _onboardingPrefs.isCompleted(),
-      _kohaAuth.isLoggedIn(),
-    ]);
-    final onboardingDone = results[0];
-    final hasKohaSession = results[1];
-    final hasFirebaseSession = _firebaseAuth.currentUser != null;
+    final started = DateTime.now();
 
-    late final _AuthState sessionState;
-    if (hasKohaSession && hasFirebaseSession) {
-      sessionState = _AuthState.authenticated;
-    } else {
-      if (hasKohaSession || hasFirebaseSession) {
-        await _kohaAuth.logout();
-        await _firebaseAuth.signOut();
-      }
-      final isGuest = await _secureStorage.isGuestMode();
-      sessionState = isGuest ? _AuthState.guest : _AuthState.signedOut;
-    }
-
-    if (!onboardingDone) {
-      _pendingAfterOnboarding = sessionState;
-      _finishLoading(_AuthState.onboarding);
+    try {
+      // Firebase starts in main() without blocking the first frame; wait here
+      // before reading Auth / session state. Time out so a hung init can't
+      // pin the app on the splash forever.
+      await firebaseReady.timeout(const Duration(seconds: 12));
+    } catch (e, st) {
+      debugPrint('Firebase init failed/timed out: $e\n$st');
+      // Fall through to signed-out; user can still reach Welcome / guest.
+      if (!mounted) return;
+      _revealDestination(_AuthState.signedOut);
       return;
     }
 
-    _finishLoading(sessionState);
+    try {
+      final results = await Future.wait([
+        _onboardingPrefs.isCompleted(),
+        _kohaAuth.isLoggedIn(),
+      ]);
+      final onboardingDone = results[0];
+      final hasKohaSession = results[1];
+      final hasFirebaseSession = _firebaseAuth.currentUser != null;
+
+      late final _AuthState sessionState;
+      if (hasKohaSession && hasFirebaseSession) {
+        sessionState = _AuthState.authenticated;
+      } else {
+        if (hasKohaSession || hasFirebaseSession) {
+          await _kohaAuth.logout();
+          await _firebaseAuth.signOut();
+        }
+        final isGuest = await _secureStorage.isGuestMode();
+        sessionState = isGuest ? _AuthState.guest : _AuthState.signedOut;
+      }
+
+      const minHold = Duration(milliseconds: 900);
+      final elapsed = DateTime.now().difference(started);
+      if (elapsed < minHold) {
+        await Future<void>.delayed(minHold - elapsed);
+      }
+      if (!mounted) return;
+
+      if (!onboardingDone) {
+        _pendingAfterOnboarding = sessionState;
+        _revealDestination(_AuthState.onboarding);
+        return;
+      }
+
+      _revealDestination(sessionState);
+    } catch (e, st) {
+      debugPrint('Session restore failed: $e\n$st');
+      if (mounted) _revealDestination(_AuthState.signedOut);
+    }
   }
 
-  void _finishLoading(_AuthState next) {
-    // Native splash may already be gone (removed on first frame).
+  void _revealDestination(_AuthState next) {
     FlutterNativeSplash.remove();
-    if (mounted) setState(() => _state = next);
+    setState(() => _state = next);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _splashOpacity = 0);
+      // Backup if AnimatedOpacity.onEnd doesn't fire.
+      Future<void>.delayed(const Duration(milliseconds: 600), () {
+        if (mounted && _splashMounted) {
+          setState(() => _splashMounted = false);
+        }
+      });
+    });
+  }
+
+  void _onSplashFadeEnd() {
+    if (_splashOpacity == 0 && _splashMounted && mounted) {
+      setState(() => _splashMounted = false);
+    }
   }
 
   Future<void> _finishOnboarding() async {
@@ -160,9 +211,33 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = useTheme(context);
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (_state == _AuthState.loading)
+          ColoredBox(color: colors.background.primary)
+        else
+          _buildDestination(),
+        if (_splashMounted)
+          IgnorePointer(
+            child: AnimatedOpacity(
+              opacity: _splashOpacity,
+              duration: const Duration(milliseconds: 520),
+              curve: Curves.easeOutCubic,
+              onEnd: _onSplashFadeEnd,
+              child: const SplashScreen(),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildDestination() {
     switch (_state) {
       case _AuthState.loading:
-        return const _BootLoadingScreen();
+        return const SizedBox.shrink();
       case _AuthState.onboarding:
         return OnboardingScreen(onFinished: _finishOnboarding);
       case _AuthState.authenticated:
@@ -175,43 +250,6 @@ class _AuthGateState extends State<AuthGate> {
           onGenerateRoute: _onGenerateAuthRoute,
         );
     }
-  }
-}
-
-/// Shown only after the native OS splash is dismissed, if session restore
-/// is still in progress. Logo/titles live on the native splash only.
-class _BootLoadingScreen extends StatefulWidget {
-  const _BootLoadingScreen();
-
-  @override
-  State<_BootLoadingScreen> createState() => _BootLoadingScreenState();
-}
-
-class _BootLoadingScreenState extends State<_BootLoadingScreen> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      FlutterNativeSplash.remove();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = useTheme(context);
-    return Scaffold(
-      backgroundColor: colors.background.primary,
-      body: Center(
-        child: SizedBox(
-          width: 22,
-          height: 22,
-          child: CircularProgressIndicator(
-            strokeWidth: 2.5,
-            color: colors.brand,
-          ),
-        ),
-      ),
-    );
   }
 }
 

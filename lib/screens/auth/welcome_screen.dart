@@ -1,15 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../data/library_images.dart';
 import '../../navigation/routes.dart';
 import '../../theme/theme.dart';
-import '../../theme/tokens/colors.dart';
 import '../../widgets/ui.dart';
 
-/// First screen a signed-out student sees. Koha username/password login
-/// was removed here â€” every account in this app authenticates by email,
-/// so a "username" field never matched reality. Three ways in now:
-/// Log in with Email (primary â€” the real returning-user path), Create
-/// Account, and Continue as Guest.
 class WelcomeScreen extends StatelessWidget {
   final VoidCallback onContinueAsGuest;
 
@@ -19,88 +14,82 @@ class WelcomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = useTheme(context);
     final shadow = cardShadowDecoration(colors);
-    final heroHeight = MediaQuery.of(context).size.height * 0.55;
+    final heroHeight = MediaQuery.sizeOf(context).height * 0.48;
 
     return Stack(
+      fit: StackFit.expand,
       children: [
         Positioned(
           top: 0,
           left: 0,
           right: 0,
           height: heroHeight,
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [AppPalette.base[800]!, AppPalette.base[600]!],
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(
+                portraitLibraryImagePath,
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
               ),
-            ),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Positioned(
-                  top: -40,
-                  right: -30,
-                  child: _softCircle(120, AppPalette.base[500]!.withValues(alpha: 0.35)),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.48),
+                      Colors.black.withValues(alpha: 0.68),
+                    ],
+                  ),
                 ),
-                Positioned(
-                  bottom: 60,
-                  left: -50,
-                  child: _softCircle(160, AppPalette.base[400]!.withValues(alpha: 0.25)),
-                ),
-                SafeArea(
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 84,
-                            height: 84,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(AppRadius.lg),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0x33000000),
-                                  offset: Offset(0, 8),
-                                  blurRadius: 20,
-                                ),
-                              ],
-                            ),
-                            child: AppText(
-                              'JZ',
-                              variant: 'h3',
-                              style: TextStyle(
-                                color: AppPalette.base[700],
-                                fontWeight: FontWeight.w800,
+              ),
+              SafeArea(
+                bottom: false,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppGrid.margin),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 84,
+                          height: 84,
+                          padding: const EdgeInsets.all(AppSpacing.sm),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(AppRadius.lg),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x33000000),
+                                offset: Offset(0, 8),
+                                blurRadius: 20,
                               ),
-                            ),
+                            ],
                           ),
-                          const SizedBox(height: AppSpacing.lg),
-                          AppText(
-                            'Junaid Zaidi Library',
-                            variant: 'h3',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                          child: const Image(
+                            image: AssetImage(logoImagePath),
+                            fit: BoxFit.contain,
                           ),
-                          const SizedBox(height: AppSpacing.xs),
-                          AppText(
-                            'COMSATS University Islamabad',
-                            variant: 'bodyBase',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.85)),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        AppText(
+                          'Junaid Zaidi Library',
+                          variant: 'h4',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 30,
+                            height: 1.2,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
         Positioned(
@@ -109,10 +98,10 @@ class WelcomeScreen extends StatelessWidget {
           bottom: 0,
           child: Container(
             padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              AppSpacing.xl,
-              AppSpacing.lg,
-              AppSpacing.xl,
+              AppGrid.margin,
+              AppSpacing.md,
+              AppGrid.margin,
+              AppSpacing.sm,
             ),
             decoration: BoxDecoration(
               color: colors.background.primary,
@@ -138,17 +127,19 @@ class WelcomeScreen extends StatelessWidget {
                     variant: 'bodyBase',
                     tone: 'secondary',
                   ),
-                  const SizedBox(height: AppSpacing.lg),
+                  const SizedBox(height: AppSpacing.md),
                   AppButton(
                     label: 'Log in with Email',
                     variant: 'primary',
-                    onPressed: () => Navigator.of(context).pushNamed(AuthRoutes.emailLogin),
+                    onPressed: () =>
+                        Navigator.of(context).pushNamed(AuthRoutes.emailLogin),
                   ),
-                  const SizedBox(height: AppSpacing.ms),
+                  const SizedBox(height: AppSpacing.sm),
                   AppButton(
                     label: 'Create Account',
                     variant: 'secondary',
-                    onPressed: () => Navigator.of(context).pushNamed(AuthRoutes.signupForm),
+                    onPressed: () =>
+                        Navigator.of(context).pushNamed(AuthRoutes.signupForm),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   AppButton(
@@ -156,20 +147,19 @@ class WelcomeScreen extends StatelessWidget {
                     variant: 'text',
                     onPressed: onContinueAsGuest,
                   ),
+                  const SizedBox(height: AppSpacing.sm),
+                  AppText(
+                    'For any difficulty, contact Junaid Zaidi Library.',
+                    variant: 'bodySmall',
+                    tone: 'tertiary',
+                    textAlign: TextAlign.center,
+                  ),
                 ],
               ),
             ),
           ),
         ),
       ],
-    );
-  }
-
-  Widget _softCircle(double size, Color color) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(shape: BoxShape.circle, color: color),
     );
   }
 }

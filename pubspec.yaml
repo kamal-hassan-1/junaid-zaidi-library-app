@@ -170,28 +170,24 @@ flutter_launcher_icons:
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
 
-# Native OS splash only (no Flutter splash screen). Transparent crest:
-# assets/logo.png. Android 12+ is limited to bg color + circular icon.
-# Do NOT bake a light fill into the Android 12 PNG (white plate in dark mode).
+# Native OS splash is background color only (no crest). Android 12+ still
+# needs an icon slot — use a fully transparent PNG so nothing is visible.
+# Branded crest + copy live in lib/screens/splash_screen.dart.
 #
 # After `dart run flutter_native_splash:create`, re-check
 # android/app/src/main/res/values-night*/styles.xml if the generator
 # rewrites them.
 flutter_native_splash:
   color: "#F8F9FA"
-  image: "assets/logo.png"
   color_dark: "#0A1018"
-  image_dark: "assets/logo.png"
   android: true
   ios: true
   web: false
   fullscreen: false
-  android_gravity: center
-  ios_content_mode: center
   android_12:
     color: "#F8F9FA"
     color_dark: "#0A1018"
-    image: "assets/icon/splash_logo_android12.png"
-    image_dark: "assets/icon/splash_logo_android12.png"
+    image: "assets/icon/splash_transparent.png"
+    image_dark: "assets/icon/splash_transparent.png"
     icon_background_color: "#F8F9FA"
     icon_background_color_dark: "#0A1018"

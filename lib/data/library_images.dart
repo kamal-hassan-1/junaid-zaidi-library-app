@@ -122,3 +122,4 @@ const String libraryFrontLeftAngleImagePath =
     'assets/library-front-leftAngle-view.jpg';
 const String holdingPhoneImagePath = 'assets/holding_phone.png';
 const String librarianSvgImagePath = 'assets/librarian.svg';
+const String portraitLibraryImagePath = 'assets/portrait-library.jpg';

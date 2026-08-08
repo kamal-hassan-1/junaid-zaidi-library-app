@@ -1,21 +1,23 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'firebase_options.dart';
+import 'firebase_bootstrap.dart';
 import 'screens/auth/auth_gate.dart';
 import 'theme/semantic/dark.dart';
 import 'theme/semantic/light.dart';
 import 'theme/theme.dart';
 
 void main() async {
-  // Keep the native OS splash until Flutter's first frame, then remove it.
-  // If session restore is still running, AuthGate shows a spinner only.
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  // Hold the solid-color native plate only until SplashScreen's first frame.
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
   GoogleFonts.config.allowRuntimeFetching = false;
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Kick off Firebase without awaiting — runApp paints SplashScreen ASAP,
+  // so Android 12+ isn't stuck on a blank bg during SDK init.
+  startFirebase();
+
   runApp(const JunaidZaidiLibraryApp());
 }
 
