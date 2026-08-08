@@ -34,34 +34,45 @@ class RootShell extends StatefulWidget {
 
 class _RootShellState extends State<RootShell> {
   int _index = AppTabs.home;
-  final _moreNavigatorKey = GlobalKey<NavigatorState>();
+  GlobalKey<NavigatorState> _moreNavigatorKey = GlobalKey<NavigatorState>();
+
+  /// Drop the More stack instantly by remounting its Navigator.
+  /// Avoids the pop-animation flash of the previous nested screen.
+  void _resetMoreStack() {
+    _moreNavigatorKey = GlobalKey<NavigatorState>();
+  }
 
   void _goToTab(int index) {
     // Selecting More always lands on the menu root — both when switching
     // from another tab (stack was preserved by IndexedStack) and when
     // re-tapping More while nested.
     if (index == AppTabs.more) {
-      _moreNavigatorKey.currentState?.popUntil((route) => route.isFirst);
+      final needsReset = _moreNavigatorKey.currentState?.canPop() ?? false;
+      setState(() {
+        _index = index;
+        if (needsReset) _resetMoreStack();
+      });
+      return;
     }
     setState(() => _index = index);
   }
 
   /// Open a More stack screen from another tab (e.g. Home quick links).
   ///
-  /// Replaces anything above the More root with an *instant* route, then
-  /// switches tabs on the next frame — so the More menu never flashes under
-  /// a slide transition.
+  /// Remounts the More navigator offstage, pushes the destination with no
+  /// transition, then shows the More tab — so neither the menu nor a prior
+  /// nested screen flashes.
   void _openMoreRoute(String routeName) {
-    final nav = _moreNavigatorKey.currentState;
-    if (nav != null) {
-      nav.pushAndRemoveUntil(
-        _buildMoreRoute(RouteSettings(name: routeName), instant: true),
-        (route) => route.isFirst,
-      );
-    }
+    setState(_resetMoreStack);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      setState(() => _index = AppTabs.more);
+      _moreNavigatorKey.currentState?.push(
+        _buildMoreRoute(RouteSettings(name: routeName), instant: true),
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _index = AppTabs.more);
+      });
     });
   }
 
