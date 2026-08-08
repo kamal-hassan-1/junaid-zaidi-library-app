@@ -3,11 +3,6 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../navigation/routes.dart';
 
-/// Static copy for the About screen. Placeholder text — swap for real
-/// library-provided copy when available.
-const String aboutDescription =
-    "The Junaid Zaidi Library at COMSATS University Islamabad serves the university's academic community with an extensive collection of books, journals, theses, and digital resources, along with study spaces designed to support research and learning.";
-
 class InchargeMessage {
   final String name;
   final String message;
@@ -21,7 +16,6 @@ const InchargeMessage inchargeMessage = InchargeMessage(
       'Welcome to the Junaid Zaidi Library. Our goal is to provide a welcoming, well-resourced environment where every student and faculty member can pursue knowledge with ease. We continue to expand our collections and services to better serve our community.',
 );
 
-/// Clickable bars below the short intro sections. Each links to its own screen.
 class AboutLink {
   final String key;
   final String label;

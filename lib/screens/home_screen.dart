@@ -8,7 +8,6 @@ import '../navigation/auth_scope.dart';
 import '../navigation/routes.dart';
 import '../theme/theme.dart';
 import '../widgets/ui.dart';
-import 'opac.dart';
 
 const String _hecDigitalLibraryUrl =
     'https://library.comsats.edu.pk/hec-digital-library.aspx';
@@ -25,14 +24,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String _query = '';
 
-  /// Opens the OPAC (catalog search) screen, pre-filled with [query] if
-  /// given, otherwise with whatever is currently typed in the search box.
+  /// Opens the Search (OPAC) tab, pre-filled with [query] if given,
+  /// otherwise with whatever is currently typed in the search box.
   void _openOpac([String? query]) {
     final resolvedQuery = (query ?? _query).trim();
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => OpacScreen(initialQuery: resolvedQuery),
-      ),
+    AppTabScope.of(context).openSearch(
+      resolvedQuery.isEmpty ? null : resolvedQuery,
     );
   }
 

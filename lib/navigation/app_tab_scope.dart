@@ -1,21 +1,24 @@
 import 'package:flutter/widgets.dart';
 
-/// Bottom tab indices (mirrors app/(tabs)/_layout.js's tab order).
+/// Bottom tab indices.
 class AppTabs {
   const AppTabs._();
 
   static const int home = 0;
-  static const int libraryResources = 1;
-  static const int exploreSpaces = 2;
-  static const int more = 3;
+  static const int search = 1;
+  static const int libraryResources = 2;
+  static const int exploreSpaces = 3;
+  static const int more = 4;
 }
 
-/// Lets a leaf screen (e.g. Home's "Explore Spaces" resource card) switch
-/// the active bottom tab without knowing how RootShell is implemented.
-/// Mirrors the original app's `router.push("/(tabs)/explore-spaces")`,
-/// which is a tab switch rather than a stack push.
+/// Lets a leaf screen switch the active bottom tab without knowing how
+/// RootShell is implemented.
 class AppTabScope extends InheritedWidget {
   final ValueChanged<int> goToTab;
+
+  /// Switch to the Search (OPAC) tab. When [query] is non-null, OPAC
+  /// applies it (e.g. Home search box submit).
+  final void Function([String? query]) openSearch;
 
   /// Switch to the More tab and push [routeName] on More's nested Navigator
   /// (e.g. [MoreRoutes.about]), so stack titles and named sub-routes work.
@@ -24,6 +27,7 @@ class AppTabScope extends InheritedWidget {
   const AppTabScope({
     super.key,
     required this.goToTab,
+    required this.openSearch,
     required this.openMoreRoute,
     required super.child,
   });
@@ -37,5 +41,6 @@ class AppTabScope extends InheritedWidget {
   @override
   bool updateShouldNotify(AppTabScope oldWidget) =>
       oldWidget.goToTab != goToTab ||
+      oldWidget.openSearch != openSearch ||
       oldWidget.openMoreRoute != openMoreRoute;
 }

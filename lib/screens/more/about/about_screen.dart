@@ -5,11 +5,6 @@ import '../../../data/library_images.dart';
 import '../../../theme/theme.dart';
 import '../../../widgets/ui.dart';
 
-/// About screen (mirrors the original app's
-/// `app/(tabs)/more/about/index.js`): hero photo, short description, a
-/// quoted message from the library in-charge, a horizontally-scrolling
-/// photo strip, and a grouped list of links into the other About
-/// sub-screens (Facts / Rules / Staff / Floor Plan).
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
@@ -81,18 +76,6 @@ class AboutScreen extends StatelessWidget {
           ),
           const Padding(
             padding: EdgeInsets.only(bottom: AppSpacing.sm),
-            child: Heading(level: 5, text: 'Description'),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-            child: AppText(
-              aboutDescription,
-              variant: 'bodyBase',
-              tone: 'secondary',
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.only(bottom: AppSpacing.sm),
             child: Heading(level: 5, text: 'Message from the Library In-Charge'),
           ),
           Padding(
@@ -122,6 +105,17 @@ class AboutScreen extends StatelessWidget {
               ),
             ),
           ),
+          
+          _groupedList(colors, [
+            for (var i = 0; i < aboutLinks.length; i++)
+              ListRow(
+                icon: aboutLinks[i].icon,
+                label: aboutLinks[i].label,
+                onTap: () => Navigator.of(context).pushNamed(aboutLinks[i].routeName),
+                showDivider: i < aboutLinks.length - 1,
+              ),
+          ]),
+          const SizedBox(height: AppSpacing.lg),
           const Padding(
             padding: EdgeInsets.only(bottom: AppSpacing.sm),
             child: Heading(level: 5, text: 'Library Pictures'),
@@ -149,15 +143,6 @@ class AboutScreen extends StatelessWidget {
               ),
             ),
           ),
-          _groupedList(colors, [
-            for (var i = 0; i < aboutLinks.length; i++)
-              ListRow(
-                icon: aboutLinks[i].icon,
-                label: aboutLinks[i].label,
-                onTap: () => Navigator.of(context).pushNamed(aboutLinks[i].routeName),
-                showDivider: i < aboutLinks.length - 1,
-              ),
-          ]),
         ],
       ),
     );

@@ -4,8 +4,7 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import '../data/library_images.dart';
 import '../widgets/ui.dart';
 
-/// Explore Spaces tab. Under construction — mirrors
-/// app/(tabs)/explore-spaces.js.
+/// Spaces tab. Under construction — mirrors app/(tabs)/explore-spaces.js.
 class ExploreSpacesScreen extends StatelessWidget {
   const ExploreSpacesScreen({super.key});
 
@@ -16,7 +15,7 @@ class ExploreSpacesScreen extends StatelessWidget {
       backgroundImageOpacity: 0.05,
       child: EmptyState(
         icon: LucideIcons.compass,
-        title: 'Explore Spaces',
+        title: 'Spaces',
         description:
             'This section is under construction. Study rooms and floor spaces will appear here soon.',
       ),

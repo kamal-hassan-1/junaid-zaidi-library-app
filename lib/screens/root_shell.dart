@@ -19,12 +19,12 @@ import 'more/more_screen.dart';
 import 'more/opening_hours_screen.dart';
 import 'more/profile_screen.dart';
 import 'more/request_password_change_screen.dart';
+import 'opac.dart';
 
-/// Root navigation shell: bottom tab bar (Home / Library Resources /
-/// Explore Spaces / More) mirroring app/(tabs)/_layout.js, with a nested
-/// Navigator inside the More tab mirroring app/(tabs)/more/_layout.js's
-/// stack. Tabs are kept alive via IndexedStack so switching tabs preserves
-/// each screen's state, matching expo-router's `Tabs` behavior.
+/// Root navigation shell: bottom tab bar (Home / Search / Services /
+/// Spaces / More), with a nested Navigator inside the More tab. Tabs are
+/// kept alive via IndexedStack so switching tabs preserves each screen's
+/// state.
 class RootShell extends StatefulWidget {
   const RootShell({super.key});
 
@@ -35,6 +35,8 @@ class RootShell extends StatefulWidget {
 class _RootShellState extends State<RootShell> {
   int _index = AppTabs.home;
   GlobalKey<NavigatorState> _moreNavigatorKey = GlobalKey<NavigatorState>();
+  String? _opacQuery;
+  int _opacQueryGeneration = 0;
 
   /// Drop the More stack instantly by remounting its Navigator.
   /// Avoids the pop-animation flash of the previous nested screen.
@@ -55,6 +57,16 @@ class _RootShellState extends State<RootShell> {
       return;
     }
     setState(() => _index = index);
+  }
+
+  void _openSearch([String? query]) {
+    setState(() {
+      _index = AppTabs.search;
+      if (query != null) {
+        _opacQuery = query;
+        _opacQueryGeneration++;
+      }
+    });
   }
 
   /// Open a More stack screen from another tab (e.g. Home quick links).
@@ -157,6 +169,10 @@ class _RootShellState extends State<RootShell> {
 
     final tabs = <Widget>[
       const HomeScreen(),
+      OpacScreen(
+        initialQuery: _opacQuery,
+        queryGeneration: _opacQueryGeneration,
+      ),
       const LibraryResourcesScreen(),
       const ExploreSpacesScreen(),
       Navigator(
@@ -170,6 +186,7 @@ class _RootShellState extends State<RootShell> {
 
     return AppTabScope(
       goToTab: _goToTab,
+      openSearch: _openSearch,
       openMoreRoute: _openMoreRoute,
       child: PopScope(
         canPop: !canPopMore,
@@ -202,12 +219,16 @@ class _RootShellState extends State<RootShell> {
                     label: 'Home',
                   ),
                   BottomNavigationBarItem(
+                    icon: Icon(LucideIcons.search),
+                    label: 'Search',
+                  ),
+                  BottomNavigationBarItem(
                     icon: Icon(LucideIcons.library),
-                    label: 'Library Resources',
+                    label: 'Services',
                   ),
                   BottomNavigationBarItem(
                     icon: Icon(LucideIcons.compass),
-                    label: 'Explore Spaces',
+                    label: 'Spaces',
                   ),
                   BottomNavigationBarItem(
                     icon: Icon(LucideIcons.menu),

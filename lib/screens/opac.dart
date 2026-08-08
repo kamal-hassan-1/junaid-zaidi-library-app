@@ -8,13 +8,20 @@ import '../widgets/ui.dart';
 
 /// OPAC (Online Public Access Catalog) — full catalog search screen.
 ///
-/// Reached from the "OPAC" resource card on the Home tab, or by
-/// submitting a query from the Home tab's search box (in which case
-/// [initialQuery] is pre-filled and searched immediately).
+/// Hosted as the Search tab (so the bottom nav stays visible). Also opened
+/// from Home's search box / OPAC quick link via [queryGeneration].
 class OpacScreen extends StatefulWidget {
-  const OpacScreen({super.key, this.initialQuery});
+  const OpacScreen({
+    super.key,
+    this.initialQuery,
+    this.queryGeneration = 0,
+  });
 
   final String? initialQuery;
+
+  /// Bumped by RootShell when Home seeds a new query so [didUpdateWidget]
+  /// re-applies even if the query string is unchanged.
+  final int queryGeneration;
 
   @override
   State<OpacScreen> createState() => _OpacScreenState();
@@ -33,6 +40,14 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _loadBooks();
+  }
+
+  @override
+  void didUpdateWidget(covariant OpacScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.queryGeneration != oldWidget.queryGeneration) {
+      _onSearch(widget.initialQuery ?? '');
+    }
   }
 
   Future<void> _loadBooks() async {

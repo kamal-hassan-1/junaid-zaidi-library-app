@@ -3,14 +3,13 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../data/library_images.dart';
 import '../data/library_resource_links.dart';
+import '../navigation/app_tab_scope.dart';
 import '../theme/theme.dart';
 import '../widgets/ui.dart';
-import 'opac.dart';
 
-/// Library Resources tab: the same 6 items as the "Explore Resources"
-/// dropdown on the live library website, one per row. OPAC opens the in-app
-/// catalog search; every other item opens that resource's page on the
-/// library website.
+/// Services tab: the same 6 items as the "Explore Resources" dropdown on
+/// the live library website, one per row. OPAC opens the Search tab; every
+/// other item opens that resource's page on the library website.
 class LibraryResourcesScreen extends StatelessWidget {
   const LibraryResourcesScreen({super.key});
 
@@ -21,12 +20,6 @@ class LibraryResourcesScreen extends StatelessWidget {
     );
     if (!confirmed) return;
     await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-  }
-
-  void _openOpac(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const OpacScreen()),
-    );
   }
 
   @override
@@ -40,7 +33,7 @@ class LibraryResourcesScreen extends StatelessWidget {
         children: [
           const Padding(
             padding: EdgeInsets.only(bottom: AppSpacing.ms),
-            child: Heading(level: 5, text: 'Library Resources'),
+            child: Heading(level: 5, text: 'Services'),
           ),
           for (var i = 0; i < libraryResourceLinks.length; i++) ...[
             if (i > 0) const SizedBox(height: AppSpacing.md),
@@ -55,7 +48,7 @@ class LibraryResourcesScreen extends StatelessWidget {
                   accent: resource.accent,
                   opensExternally: !isOpac,
                   onTap: isOpac
-                      ? () => _openOpac(context)
+                      ? () => AppTabScope.of(context).openSearch()
                       : () => _openWebsite(context, resource.url),
                 );
               },
