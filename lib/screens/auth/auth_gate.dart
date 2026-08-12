@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 import '../../firebase_bootstrap.dart' show firebaseReady;
+import '../../models/student_request.dart';
 import '../../navigation/auth_scope.dart';
 import '../../navigation/routes.dart';
 import '../../services/firebase_auth_service.dart';
@@ -14,7 +15,9 @@ import '../onboarding/onboarding_screen.dart';
 import '../root_shell.dart';
 import '../splash_screen.dart';
 import 'email_login_screen.dart';
+import 'role_selection_screen.dart';
 import 'signup_form_screen.dart';
+import 'staff_signup_form_screen.dart';
 import 'welcome_screen.dart';
 
 enum _AuthState { loading, onboarding, authenticated, guest, signedOut }
@@ -197,8 +200,13 @@ class _AuthGateState extends State<AuthGate> {
         page = WelcomeScreen(onContinueAsGuest: _handleContinueAsGuest);
       case AuthRoutes.emailLogin:
         page = EmailLoginScreen(onLoginSuccess: _handleAuthenticated);
+      case AuthRoutes.roleSelection:
+        page = const RoleSelectionScreen();
       case AuthRoutes.signupForm:
         page = const SignupFormScreen();
+      case AuthRoutes.staffSignupForm:
+        final role = settings.arguments as String? ?? RegistrationRole.staff;
+        page = StaffSignupFormScreen(role: role);
       default:
         page = const _ComingSoonScreen();
     }

@@ -133,7 +133,7 @@ class WelcomeScreen extends StatelessWidget {
                     label: 'Create Account',
                     variant: 'secondary',
                     onPressed: () =>
-                        Navigator.of(context).pushNamed(AuthRoutes.signupForm),
+                        Navigator.of(context).pushNamed(AuthRoutes.roleSelection),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   AppButton(
