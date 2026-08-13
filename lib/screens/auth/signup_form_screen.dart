@@ -12,63 +12,107 @@ import '../../widgets/ui.dart';
 
 final _cnicPattern = RegExp(r'^\d{5}-\d{7}-\d$');
 final _emailPattern = RegExp(r'^[\w.+-]+@[\w-]+\.[\w.-]+$');
-// Password policy: at least 8 characters, with at least one letter and
-// one digit.
 final _passwordHasLetter = RegExp(r'[A-Za-z]');
 final _passwordHasDigit = RegExp(r'\d');
 
-// Full name: letters and single spaces only, no digits/symbols. Applied
-// against the trimmed value so leading/trailing spaces don't trip it.
 final _fullNamePattern = RegExp(r'^[A-Za-z]+(?: [A-Za-z]+)*$');
 
-// Registration number: SS##-DEPT-### e.g. FA23-BCS-050. Two letters
-// (intake season), two digits (intake year), the department code
-// (2-5 letters), then a three-digit roll number.
 final _regNumberPattern = RegExp(r'^[A-Z]{2}\d{2}-[A-Z]{2,5}-\d{3}$');
 
-// Pakistani mobile number formatted as 03XX-XXXXXXX â€” 11 digits total,
-// always starting with 03 (Pakistani mobile prefix).
 final _phonePattern = RegExp(r'^03\d{2}-\d{7}$');
 
-/// Registration-number department codes -> full department names, used
-/// to auto-populate the Department field as the student types their
-/// registration number. Not exhaustive â€” COMSATS Islamabad's actual
-/// program list is longer than what's captured here â€” so unknown codes
-/// simply leave Department untouched for manual entry rather than
-/// blocking the form.
 const Map<String, String> _departmentCodeMap = {
-  'BCS': 'Department of Computer Science',
+  // ---- Computer Science --------------------------------------------
+  // These are all programs offered BY the single Computer Science
+  // department, not separate departments â€” so they all resolve to
+  // the same department name.
+  'BCS': 'Department of Computer Science', // BS Computer Science
   'CS': 'Department of Computer Science',
-  'SE': 'Department of Software Engineering',
-  'BSE': 'Department of Software Engineering',
+  'BCT': 'Department of Computer Science', // BS Computer Technology
+  'BSE': 'Department of Computer Science', // BS Software Engineering
+  'SE': 'Department of Computer Science',
+  'BAI': 'Department of Computer Science', // BS Artificial Intelligence
+  'AI': 'Department of Computer Science',
+  'BDS': 'Department of Computer Science', // BS Data Science
+  'DS': 'Department of Computer Science',
+
+  // ---- Information Technology --------------------------------------
   'IT': 'Department of Information Technology',
   'BIT': 'Department of Information Technology',
-  'AI': 'Department of Artificial Intelligence',
-  'BAI': 'Department of Artificial Intelligence',
-  'DS': 'Department of Data Science',
+
+  // ---- Cyber Security ----------------------------------------------
   'CYS': 'Department of Cyber Security',
+
+  // ---- Electrical Engineering --------------------------------------
   'EE': 'Department of Electrical Engineering',
   'BEE': 'Department of Electrical Engineering',
   'ELE': 'Department of Electrical Engineering',
+
+  // ---- Civil Engineering -------------------------------------------
   'CE': 'Department of Civil Engineering',
   'BCE': 'Department of Civil Engineering',
+
+  // ---- Mechanical Engineering --------------------------------------
   'ME': 'Department of Mechanical Engineering',
   'BME': 'Department of Mechanical Engineering',
+
+  // ---- Management Sciences (business, NOT Computer Science) --------
   'BBA': 'Department of Management Sciences',
   'MBA': 'Department of Management Sciences',
+
+  // ---- Accounting & Finance ----------------------------------------
   'ACC': 'Department of Accounting & Finance',
   'ACF': 'Department of Accounting & Finance',
+
+  // ---- Economics ---------------------------------------------------
   'ECO': 'Department of Economics',
+
+  // ---- English -----------------------------------------------------
   'ENG': 'Department of English',
+
+  // ---- Mathematics -------------------------------------------------
   'MATH': 'Department of Mathematics',
+
+  // ---- Statistics --------------------------------------------------
+  'STAT': 'Department of Statistics',
+
+  // ---- Psychology --------------------------------------------------
   'PSY': 'Department of Psychology',
+
+  // ---- Biosciences -------------------------------------------------
   'BIO': 'Department of Biosciences',
+
+  // ---- Biotechnology -----------------------------------------------
   'BT': 'Department of Biotechnology',
+
+  // ---- Physics -----------------------------------------------------
   'PHY': 'Department of Physics',
+
+  // ---- Chemistry ---------------------------------------------------
   'CHE': 'Department of Chemistry',
+
+  // ---- Architecture ------------------------------------------------
   'ARCH': 'Department of Architecture',
+
+  // ---- Law ---------------------------------------------------------
   'LAW': 'Department of Law',
+
+  // ---- Environmental Sciences --------------------------------------
+  'ENV': 'Department of Environmental Sciences',
+
+  // ---- Meteorology -------------------------------------------------
+  'MET': 'Department of Meteorology',
+
+  // ---- Pharmacy ----------------------------------------------------
+  'PHM': 'Department of Pharmacy',
 };
+
+/// All COMSATS department names available for manual selection in the
+/// Department dropdown â€” derived from [_departmentCodeMap] so the
+/// dropdown's option list and the auto-fill map can never drift apart.
+/// Deduped (several codes map to the same department, e.g. BCS/CS) and
+/// sorted alphabetically for a predictable dropdown order.
+final List<String> kComsatsDepartments = _departmentCodeMap.values.toSet().toList()..sort();
 
 /// The full Student registration screen (Updated Authentication
 /// Workflow â€” role-aware registration: this is the [RegistrationRole.
@@ -92,7 +136,6 @@ class SignupFormScreen extends StatefulWidget {
 class _SignupFormScreenState extends State<SignupFormScreen> {
   final _fullNameController = TextEditingController();
   final _regNumberController = TextEditingController();
-  final _departmentController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -103,6 +146,7 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
   final _firestoreService = FirestoreService();
 
   String? _selectedCampus;
+  String? _selectedDepartment;
 
   String? _fullNameError;
   String? _regNumberError;
@@ -115,9 +159,6 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
   String? _cnicError;
   String? _formError;
 
-  // Tracks whether the student has manually typed into Department
-  // themselves â€” once true, auto-fill from the registration number
-  // stops overwriting whatever they've entered.
   bool _departmentEditedByUser = false;
 
   // Only start showing an error for a field once the student has
@@ -148,11 +189,7 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
       _validateRegNumber();
       _maybeAutoFillDepartment();
     });
-    _departmentController.addListener(() {
-      _departmentTouched = true;
-      _departmentEditedByUser = true;
-      _validateDepartment();
-    });
+    
     _emailController.addListener(() {
       _emailTouched = true;
       _validateEmail();
@@ -181,7 +218,6 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
   void dispose() {
     _fullNameController.dispose();
     _regNumberController.dispose();
-    _departmentController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -223,8 +259,8 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
 
   bool _validateDepartment() {
     String? error;
-    if (_departmentController.text.trim().isEmpty) {
-      error = 'Enter your department.';
+    if (_selectedDepartment == null || _selectedDepartment!.isEmpty) {
+      error = 'Select your department.';
     }
     if (mounted) setState(() => _departmentError = error);
     return error == null;
@@ -294,8 +330,9 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
   }
 
   /// Reads the department code out of a (possibly partial) registration
-  /// number and fills Department from [_departmentCodeMap] â€” but only
-  /// while the student hasn't started editing Department by hand.
+  /// number and auto-selects the matching entry in [kComsatsDepartments]
+  /// via [_departmentCodeMap] â€” but only while the student hasn't picked
+  /// a department themselves from the dropdown.
   void _maybeAutoFillDepartment() {
     if (_departmentEditedByUser) return;
 
@@ -306,11 +343,8 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
 
     final code = match.group(1)!;
     final department = _departmentCodeMap[code];
-    if (department != null && _departmentController.text != department) {
-      _departmentController.text = department;
-      // Auto-fill doesn't count as the user editing it â€” the department
-      // listener above just flipped this to true, so reset it.
-      _departmentEditedByUser = false;
+    if (department != null && _selectedDepartment != department) {
+      setState(() => _selectedDepartment = department);
       if (_departmentTouched) _validateDepartment();
     }
   }
@@ -354,7 +388,7 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
         campus: _selectedCampus!,
         fullName: _fullNameController.text.trim(),
         registrationNumber: _regNumberController.text.trim().toUpperCase(),
-        department: _departmentController.text.trim(),
+        department: _selectedDepartment!,
         email: _emailController.text.trim().toLowerCase(),
         phone: _phoneController.text.trim(),
         cnic: _cnicController.text.trim(),
@@ -366,7 +400,7 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
       setState(() => _isSubmitted = true);
     } catch (_) {
       setState(() =>
-          _formError = 'Could not submit your request. Check your connection and try again.');
+      _formError = 'Could not submit your request. Check your connection and try again.');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -434,12 +468,19 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
               ],
             ),
             const SizedBox(height: AppSpacing.md),
-            AppTextField(
+            AppDropdownField(
               label: 'Department',
-              controller: _departmentController,
-              placeholder: 'Auto-filled from registration number, or type it in',
+              value: _selectedDepartment,
+              options: kComsatsDepartments,
+              placeholder: 'Auto-filled from registration number, or select manually',
               prefixIcon: LucideIcons.graduation_cap,
               errorText: _departmentTouched ? _departmentError : null,
+              onChanged: (value) {
+                _departmentTouched = true;
+                _departmentEditedByUser = true;
+                setState(() => _selectedDepartment = value);
+                _validateDepartment();
+              },
             ),
             const SizedBox(height: AppSpacing.md),
             AppDropdownField(
@@ -533,9 +574,9 @@ class _SignupFormScreenState extends State<SignupFormScreen> {
 class _UpperCaseFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
     return TextEditingValue(
       text: newValue.text.toUpperCase(),
       selection: newValue.selection,
@@ -550,9 +591,9 @@ class _UpperCaseFormatter extends TextInputFormatter {
 class _CnicDashFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
     final digits = newValue.text;
     final buffer = StringBuffer();
     for (var i = 0; i < digits.length; i++) {
@@ -575,9 +616,9 @@ class _CnicDashFormatter extends TextInputFormatter {
 class _PhoneDashFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
     final digits = newValue.text;
     final buffer = StringBuffer();
     for (var i = 0; i < digits.length; i++) {
