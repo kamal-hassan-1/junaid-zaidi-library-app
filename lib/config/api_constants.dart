@@ -76,4 +76,15 @@ class ApiConstants {
       'password_change_requests';
 
   static const Duration requestTimeout = Duration(seconds: 15);
+
+  // ---- OPAC search, dev toggle ----
+  //
+  // No Koha instance is reachable from this dev machine yet (nothing
+  // listening on kohaBaseUrl). Until a real URL is available, BiblioService
+  // is backed by MockBiblioService instead (see opac.dart) so the search
+  // bar UI/UX — debounce, loading state, server-shaped query params — can
+  // be built and tested now. Flip this to false the moment a real Koha URL
+  // is wired up; nothing else needs to change, since both implementations
+  // share the same BiblioSource interface.
+  static const bool useMockKohaBackend = true;
 }

@@ -29,6 +29,14 @@ class MoreMenuItem {
 
 final List<MoreMenuItem> moreMenu = [
   const MoreMenuItem(
+    key: 'my-books',
+    label: 'My Checkouts & Holds',
+    icon: LucideIcons.book_marked,
+    routeName: MoreRoutes.myBooks,
+    section: MoreMenuSection.library,
+    accent: AppAccent.success,
+  ),
+  const MoreMenuItem(
     key: 'about',
     label: 'About',
     icon: LucideIcons.info,

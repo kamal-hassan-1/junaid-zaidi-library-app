@@ -1,8 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 
+import '../config/api_constants.dart';
 import '../models/biblio.dart';
+import '../navigation/auth_scope.dart';
 import '../services/biblio_service.dart';
+import '../services/circulation_service.dart';
+import '../services/koha_api_client.dart';
+import '../services/mock_biblio_service.dart';
 import '../theme/theme.dart';
 import '../widgets/ui.dart';
 
@@ -28,13 +35,63 @@ class OpacScreen extends StatefulWidget {
 }
 
 class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
+  /// Debounce so each keystroke doesn't fire its own Koha search request.
+  static const _searchDebounce = Duration(milliseconds: 350);
+
+  /// Item-type filter options shown in the dropdown. `code: null` is "All
+  /// types". BK/EBK/CF are confirmed real itemtype codes for this
+  /// library, read directly off the live OPAC's search facets; THESIS is
+  /// still an unconfirmed guess (see deferred.md) — no thesis-like code
+  /// showed up in the facets checked so far.
+  static const List<({String? code, String label})> _typeFilters = [
+    (code: null, label: 'All types'),
+    (code: 'BK', label: 'Books'),
+    (code: 'EBK', label: 'eBooks'),
+    (code: 'CF', label: 'Computer Files'),
+    (code: 'THESIS', label: 'Thesis'),
+  ];
+
+  /// Search-scope options — mirrors the real OPAC website's `idx=`
+  /// search-index parameter exactly (confirmed from the live site's
+  /// search form, see deferred.md). Series/call-number exist on the real
+  /// site too but aren't included yet since [Biblio] doesn't carry those
+  /// fields.
+  static const List<({String? code, String label})> _searchFields = [
+    (code: null, label: 'Keyword'),
+    (code: 'ti', label: 'Title'),
+    (code: 'au', label: 'Author'),
+    (code: 'su', label: 'Subject'),
+    (code: 'nb', label: 'ISBN'),
+    (code: 'ns', label: 'ISSN'),
+  ];
+
+  /// Campus filter — real confirmed codes for this library, read
+  /// directly off the live OPAC's "Home libraries" facet (`homebranch:`,
+  /// see deferred.md).
+  static const List<({String? code, String label})> _campusFilters = [
+    (code: null, label: 'All campuses'),
+    (code: 'isb', label: 'Islamabad'),
+    (code: 'lhr', label: 'Lahore'),
+    (code: 'atd', label: 'Abbottabad'),
+    (code: 'atk', label: 'Attock'),
+    (code: 'swl', label: 'Sahiwal'),
+    (code: 'veh', label: 'Vehari'),
+    (code: 'wah', label: 'Wah'),
+  ];
+
   late String _query = widget.initialQuery ?? '';
+  String? _selectedItemType;
+  String? _selectedSearchField;
+  String? _selectedCampus;
   bool _isLoading = false;
+  bool _isSearching = false;
   String? _errorMessage;
-  List<Biblio> _allBooks = const [];
   List<Biblio> _filteredBooks = const [];
 
-  final BiblioService _biblioService = BiblioService();
+  Timer? _debounceTimer;
+
+  final BiblioSource _biblioService =
+      ApiConstants.useMockKohaBackend ? MockBiblioService() : BiblioService();
 
   @override
   void initState() {
@@ -46,8 +103,16 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
   void didUpdateWidget(covariant OpacScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.queryGeneration != oldWidget.queryGeneration) {
-      _onSearch(widget.initialQuery ?? '');
+      final query = widget.initialQuery ?? '';
+      setState(() => _query = query);
+      _onSubmitted(query);
     }
+  }
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadBooks() async {
@@ -57,11 +122,15 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
     });
 
     try {
-      final books = await _biblioService.fetchAll();
+      final books = await _biblioService.search(
+        _query,
+        itemType: _selectedItemType,
+        searchField: _selectedSearchField,
+        campus: _selectedCampus,
+      );
       if (!mounted) return;
       setState(() {
-        _allBooks = books;
-        _filteredBooks = _applyFilter(books, _query);
+        _filteredBooks = books;
         _isLoading = false;
       });
     } catch (e) {
@@ -73,21 +142,69 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
     }
   }
 
-  List<Biblio> _applyFilter(List<Biblio> books, String query) {
-    if (query.trim().isEmpty) return books;
-    final lower = query.toLowerCase();
-    return books.where((b) {
-      return b.title.toLowerCase().contains(lower) ||
-          (b.author ?? '').toLowerCase().contains(lower) ||
-          (b.isbn ?? '').toLowerCase().contains(lower);
-    }).toList();
+  /// Called on every keystroke — updates the text immediately but waits
+  /// [_searchDebounce] of inactivity before actually hitting the search
+  /// endpoint, so typing quickly doesn't fire a request per character.
+  void _onSearch(String query) {
+    setState(() => _query = query);
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(_searchDebounce, () => _runSearch(query));
   }
 
-  void _onSearch(String query) {
+  /// Submits immediately (Enter key / search-icon action), skipping the
+  /// debounce.
+  void _onSubmitted(String query) {
+    _debounceTimer?.cancel();
+    _runSearch(query);
+  }
+
+  Future<void> _runSearch(String query) async {
     setState(() {
-      _query = query;
-      _filteredBooks = _applyFilter(_allBooks, query);
+      _isSearching = true;
+      _errorMessage = null;
     });
+
+    try {
+      final results = await _biblioService.search(
+        query,
+        itemType: _selectedItemType,
+        searchField: _selectedSearchField,
+        campus: _selectedCampus,
+      );
+      if (!mounted) return;
+      setState(() {
+        _filteredBooks = results;
+        _isSearching = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = e.toString();
+        _isSearching = false;
+      });
+    }
+  }
+
+  /// Type filter changes apply immediately (no debounce — it's a discrete
+  /// selection, not free text).
+  void _onTypeChanged(String? code) {
+    if (code == _selectedItemType) return;
+    setState(() => _selectedItemType = code);
+    _onSubmitted(_query);
+  }
+
+  /// Search-field changes apply immediately, same as [_onTypeChanged].
+  void _onSearchFieldChanged(String? code) {
+    if (code == _selectedSearchField) return;
+    setState(() => _selectedSearchField = code);
+    _onSubmitted(_query);
+  }
+
+  /// Campus changes apply immediately, same as [_onTypeChanged].
+  void _onCampusChanged(String? code) {
+    if (code == _selectedCampus) return;
+    setState(() => _selectedCampus = code);
+    _onSubmitted(_query);
   }
 
   void _showBookDetails(BuildContext context, Biblio book) {
@@ -130,9 +247,51 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
             SearchInput(
               value: _query,
               onChanged: _onSearch,
-              onClear: () => _onSearch(''),
-              onSubmitted: _onSearch,
+              onClear: () {
+                setState(() => _query = '');
+                _onSubmitted('');
+              },
+              onSubmitted: (query) {
+                setState(() => _query = query);
+                _onSubmitted(query);
+              },
+              isSearching: _isSearching,
               placeholder: 'Search by title, author, or ISBN...',
+            ),
+
+            const SizedBox(height: AppSpacing.sm),
+
+            // --- Filters: search field (mirrors the real OPAC's idx=) + item type ---
+            Row(
+              children: [
+                Expanded(
+                  child: _FilterDropdown(
+                    hint: 'Search in',
+                    options: _searchFields,
+                    selected: _selectedSearchField,
+                    onChanged: _onSearchFieldChanged,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: _FilterDropdown(
+                    hint: 'Type',
+                    options: _typeFilters,
+                    selected: _selectedItemType,
+                    onChanged: _onTypeChanged,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: AppSpacing.sm),
+
+            // --- Filter: campus (mirrors the real OPAC's homebranch: facet) ---
+            _FilterDropdown(
+              hint: 'Campus',
+              options: _campusFilters,
+              selected: _selectedCampus,
+              onChanged: _onCampusChanged,
             ),
 
             const SizedBox(height: AppSpacing.md),
@@ -146,7 +305,10 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
                     Icon(LucideIcons.library, size: 16, color: colors.brand),
                     const SizedBox(width: AppSpacing.xs),
                     Text(
-                      _query.trim().isEmpty
+                      _query.trim().isEmpty &&
+                              _selectedItemType == null &&
+                              _selectedSearchField == null &&
+                              _selectedCampus == null
                           ? '${_filteredBooks.length} books in catalog'
                           : '${_filteredBooks.length} result${_filteredBooks.length != 1 ? 's' : ''} found',
                       style: AppTypography.bodySmall
@@ -254,17 +416,27 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
-              _query.trim().isEmpty
+              _query.trim().isEmpty &&
+                      _selectedItemType == null &&
+                      _selectedSearchField == null &&
+                      _selectedCampus == null
                   ? 'No books in the catalog yet'
                   : 'No results for "$_query"',
               style: AppTypography.bodyBase
                   .toTextStyle(color: colors.text.primary)
                   .copyWith(fontWeight: FontWeight.w500),
             ),
-            if (_query.trim().isNotEmpty) ...[
+            if (_query.trim().isNotEmpty ||
+                _selectedItemType != null ||
+                _selectedSearchField != null ||
+                _selectedCampus != null) ...[
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'Try a different search term.',
+                _selectedItemType != null ||
+                        _selectedSearchField != null ||
+                        _selectedCampus != null
+                    ? 'Try a different search term or filter.'
+                    : 'Try a different search term.',
                 style: AppTypography.bodySmall
                     .toTextStyle(color: colors.text.tertiary),
               ),
@@ -287,6 +459,83 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
           index: index,
         );
       },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  Filter Dropdown
+// ---------------------------------------------------------------------------
+
+/// Compact pill dropdown for a search filter (item type, search field,
+/// etc — see [OpacScreen]'s use of two of these side by side). Same pill
+/// visual language as [SearchInput] so they sit naturally together.
+/// [hint] is shown when nothing's selected (`code: null`).
+class _FilterDropdown extends StatelessWidget {
+  final String hint;
+  final List<({String? code, String label})> options;
+  final String? selected;
+  final ValueChanged<String?> onChanged;
+
+  const _FilterDropdown({
+    required this.hint,
+    required this.options,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = useTheme(context);
+    final shadow = cardShadowDecoration(colors);
+    final backgroundColor =
+        colors.isDark ? colors.background.tertiary : const Color(0xFFFFFFFF);
+    final isFiltered = selected != null;
+
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.ms),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(AppRadius.full),
+        border: Border.all(
+          color: isFiltered ? colors.brand : colors.border,
+          width: 1,
+        ),
+        boxShadow: shadow.boxShadow,
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String?>(
+          value: selected,
+          isDense: true,
+          isExpanded: true,
+          icon: Icon(LucideIcons.chevron_down,
+              size: 16, color: isFiltered ? colors.brand : colors.icon),
+          dropdownColor: backgroundColor,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          style: AppTypography.bodyBase.toTextStyle(
+            color: isFiltered ? colors.brand : colors.text.primary,
+          ),
+          selectedItemBuilder: (context) => options
+              .map((o) => Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      o.code == null ? hint : o.label,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ))
+              .toList(),
+          items: options
+              .map(
+                (o) => DropdownMenuItem<String?>(
+                  value: o.code,
+                  child: Text(o.label),
+                ),
+              )
+              .toList(),
+          onChanged: onChanged,
+        ),
+      ),
     );
   }
 }
@@ -557,19 +806,56 @@ class _InfoChip extends StatelessWidget {
 //  Book Detail Bottom Sheet
 // ---------------------------------------------------------------------------
 
-class _BookDetailSheet extends StatelessWidget {
+class _BookDetailSheet extends StatefulWidget {
   final Biblio book;
   final SemanticColors colors;
 
   const _BookDetailSheet({required this.book, required this.colors});
 
+  @override
+  State<_BookDetailSheet> createState() => _BookDetailSheetState();
+}
+
+class _BookDetailSheetState extends State<_BookDetailSheet> {
+  final _circulation = CirculationService();
+  bool _isPlacingHold = false;
+  bool _holdPlaced = false;
+  String? _holdError;
+
   Color _bookAccent() {
-    final hue = (book.title.hashCode % 360).abs().toDouble();
+    final hue = (widget.book.title.hashCode % 360).abs().toDouble();
     return HSLColor.fromAHSL(1, hue, 0.55, 0.50).toColor();
+  }
+
+  Future<void> _placeHold() async {
+    setState(() {
+      _isPlacingHold = true;
+      _holdError = null;
+    });
+    try {
+      await _circulation.placeHold(
+        biblioId: widget.book.biblioId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _holdPlaced = true;
+        _isPlacingHold = false;
+      });
+    } on KohaSessionExpiredException {
+      if (mounted) await AuthScope.of(context).onLogout();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _holdError = e.toString();
+        _isPlacingHold = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final book = widget.book;
+    final colors = widget.colors;
     final accent = _bookAccent();
 
     return DraggableScrollableSheet(
@@ -707,6 +993,18 @@ class _BookDetailSheet extends StatelessWidget {
                             label: 'Serial',
                             colors: colors,
                           ),
+                        if (book.campusLabel != null)
+                          _DetailChip(
+                            icon: LucideIcons.map_pin,
+                            label: book.campusLabel!,
+                            colors: colors,
+                          ),
+                        for (final subject in book.subjects)
+                          _DetailChip(
+                            icon: LucideIcons.hash,
+                            label: subject,
+                            colors: colors,
+                          ),
                       ],
                     ),
 
@@ -840,6 +1138,38 @@ class _BookDetailSheet extends StatelessWidget {
                     ],
 
                     const SizedBox(height: AppSpacing.xl),
+                  ],
+                ),
+              ),
+
+              // --- Place Hold action bar ---
+              Container(
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                  AppSpacing.lg,
+                  AppSpacing.md + MediaQuery.paddingOf(context).bottom,
+                ),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: colors.border, width: 1)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_holdError != null) ...[
+                      Text(
+                        _holdError!,
+                        style: AppTypography.bodySmall.toTextStyle(color: colors.error),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                    ],
+                    AppButton(
+                      label: _holdPlaced ? 'Hold Placed' : 'Place Hold',
+                      icon: _holdPlaced ? LucideIcons.circle_check : LucideIcons.bookmark,
+                      isLoading: _isPlacingHold,
+                      onPressed: _holdPlaced ? null : _placeHold,
+                    ),
                   ],
                 ),
               ),

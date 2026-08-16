@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data/home_resources.dart';
 import '../data/library_images.dart';
+import '../data/search_destinations.dart';
 import '../navigation/app_tab_scope.dart';
 import '../navigation/auth_scope.dart';
 import '../navigation/routes.dart';
@@ -23,6 +25,10 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String _query = '';
+
+  /// Non-catalog destinations (Forms, Opening Hours, Contact, ...) the
+  /// search bar can jump straight to — see [_buildSearchSuggestions].
+  final List<SearchDestination> _searchDestinations = buildSearchDestinations();
 
   /// Opens the Search (OPAC) tab, pre-filled with [query] if given,
   /// otherwise with whatever is currently typed in the search box.
@@ -77,10 +83,57 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// Typeahead dropdown shown under the search bar while [_query] is
+  /// non-empty: matching app sections first (Forms, Contact, ...), then a
+  /// catalog-search row that's always present so a real book search never
+  /// gets silently swallowed by a keyword match.
+  Widget _buildSearchSuggestions(
+    SemanticColors colors,
+    List<SearchDestination> matches,
+  ) {
+    final shadow = cardShadowDecoration(colors);
+
+    return Container(
+      margin: const EdgeInsets.only(top: AppSpacing.xs),
+      decoration: BoxDecoration(
+        color: colors.background.secondary,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: shadow.border,
+        boxShadow: shadow.boxShadow,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final dest in matches)
+            ListRow(
+              icon: dest.icon,
+              label: dest.label,
+              onTap: () async {
+                await dest.navigate(context);
+                if (mounted) setState(() => _query = '');
+              },
+            ),
+          ListRow(
+            icon: LucideIcons.search,
+            label: 'Search catalog for "$_query"',
+            showDivider: false,
+            onTap: () {
+              _openOpac(_query);
+              setState(() => _query = '');
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = useTheme(context);
     final shadow = cardShadowDecoration(colors);
+    final destinationMatches =
+        matchSearchDestinations(_query, _searchDestinations);
 
     return ScreenContainer(
       scroll: true,
@@ -165,6 +218,8 @@ class _HomeScreenState extends State<HomeScreen> {
             onSubmitted: _openOpac,
             placeholder: 'Search for books...',
           ),
+          if (_query.trim().isNotEmpty)
+            _buildSearchSuggestions(colors, destinationMatches),
 
           const Padding(
             padding: EdgeInsets.only(top: AppSpacing.lg, bottom: AppSpacing.ms),

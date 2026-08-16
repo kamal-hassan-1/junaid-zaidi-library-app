@@ -4,6 +4,7 @@ class MoreRoutes {
   static const String root = '/more';
   static const String profile = '/more/profile';
   static const String changePassword = '/more/change-password';
+  static const String myBooks = '/more/my-books';
   static const String guides = '/more/guides';
   static const String forms = '/more/forms';
   static const String map = '/more/map';

@@ -18,6 +18,7 @@ import 'more/forms_screen.dart';
 import 'more/guides_screen.dart';
 import 'more/map_screen.dart';
 import 'more/more_screen.dart';
+import 'more/my_books_screen.dart';
 import 'more/opening_hours_screen.dart';
 import 'more/profile_screen.dart';
 import 'more/request_password_change_screen.dart';
@@ -144,6 +145,7 @@ class _RootShellState extends State<RootShell> {
   static const Map<String, String> _moreStackTitles = {
     MoreRoutes.profile: 'Profile',
     MoreRoutes.changePassword: 'Request Password Change',
+    MoreRoutes.myBooks: 'My Checkouts & Holds',
     MoreRoutes.guides: 'Guides & Documentation',
     MoreRoutes.forms: 'Forms',
     MoreRoutes.map: 'Junaid Zaidi on Maps',
@@ -162,6 +164,8 @@ class _RootShellState extends State<RootShell> {
         return const ProfileScreen();
       case MoreRoutes.changePassword:
         return const RequestPasswordChangeScreen();
+      case MoreRoutes.myBooks:
+        return const MyBooksScreen();
       case MoreRoutes.guides:
         return const GuidesScreen();
       case MoreRoutes.forms:

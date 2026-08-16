@@ -33,6 +33,18 @@ class Biblio {
   final bool serial;
   final bool opacSuppressed;
 
+  /// Subject headings (MARC 6xx fields) — free text, matches the real
+  /// OPAC website's `su`/`su-to:` subject search and facet.
+  final List<String> subjects;
+
+  /// Campus/branch code this record is held at — real confirmed codes
+  /// for this library (from the live OPAC's "Home libraries" facet, see
+  /// deferred.md): atd (Abbottabad), atk (Attock), lhr (Lahore), swl
+  /// (Sahiwal), veh (Vehari), wah (Wah), isb (Islamabad). Koha's real
+  /// field name for this is `homebranch`, tracked per-item rather than
+  /// per-biblio — flattened onto Biblio here for simplicity.
+  final String? homeLibraryId;
+
   const Biblio({
     required this.biblioId,
     required this.title,
@@ -65,6 +77,8 @@ class Biblio {
     this.timestamp,
     this.serial = false,
     this.opacSuppressed = false,
+    this.subjects = const [],
+    this.homeLibraryId,
   });
 
   factory Biblio.fromJson(Map<String, dynamic> json) {
@@ -102,6 +116,8 @@ class Biblio {
       timestamp: json['timestamp'] as String?,
       serial: json['serial'] as bool? ?? false,
       opacSuppressed: json['opac_suppressed'] as bool? ?? false,
+      subjects: (json['subjects'] as List<dynamic>?)?.cast<String>() ?? const [],
+      homeLibraryId: json['home_library_id'] as String?,
     );
   }
 
@@ -124,6 +140,16 @@ class Biblio {
         return 'Reference';
       case 'VM':
         return 'Visual Material';
+      // Confirmed against the real library's live OPAC facets (see
+      // deferred.md) — this is this library's actual itemtype code, not
+      // Koha's generic default.
+      case 'EBK':
+        return 'eBook';
+      // Not confirmed against real Koha facets — no thesis-like code
+      // appeared in a "database" search. Kept as a guess since it was
+      // explicitly requested; see deferred.md.
+      case 'THESIS':
+        return 'Thesis';
       default:
         return itemType ?? 'Unknown';
     }
@@ -132,4 +158,26 @@ class Biblio {
   /// The best available year string for display.
   String? get displayYear =>
       publicationYear ?? (copyrightDate != null ? '$copyrightDate' : null);
+
+  /// Human-friendly campus label for [homeLibraryId].
+  String? get campusLabel {
+    switch (homeLibraryId) {
+      case 'isb':
+        return 'Islamabad';
+      case 'lhr':
+        return 'Lahore';
+      case 'atd':
+        return 'Abbottabad';
+      case 'atk':
+        return 'Attock';
+      case 'swl':
+        return 'Sahiwal';
+      case 'veh':
+        return 'Vehari';
+      case 'wah':
+        return 'Wah';
+      default:
+        return homeLibraryId;
+    }
+  }
 }
