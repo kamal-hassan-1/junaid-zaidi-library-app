@@ -91,7 +91,7 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
   Timer? _debounceTimer;
 
   final BiblioSource _biblioService =
-      ApiConstants.useMockKohaBackend ? MockBiblioService() : BiblioService();
+  ApiConstants.useMockKohaBackend ? MockBiblioService() : BiblioService();
 
   @override
   void initState() {
@@ -306,9 +306,9 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
                     const SizedBox(width: AppSpacing.xs),
                     Text(
                       _query.trim().isEmpty &&
-                              _selectedItemType == null &&
-                              _selectedSearchField == null &&
-                              _selectedCampus == null
+                          _selectedItemType == null &&
+                          _selectedSearchField == null &&
+                          _selectedCampus == null
                           ? '${_filteredBooks.length} books in catalog'
                           : '${_filteredBooks.length} result${_filteredBooks.length != 1 ? 's' : ''} found',
                       style: AppTypography.bodySmall
@@ -417,9 +417,9 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
             const SizedBox(height: AppSpacing.md),
             Text(
               _query.trim().isEmpty &&
-                      _selectedItemType == null &&
-                      _selectedSearchField == null &&
-                      _selectedCampus == null
+                  _selectedItemType == null &&
+                  _selectedSearchField == null &&
+                  _selectedCampus == null
                   ? 'No books in the catalog yet'
                   : 'No results for "$_query"',
               style: AppTypography.bodyBase
@@ -433,8 +433,8 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
               const SizedBox(height: AppSpacing.sm),
               Text(
                 _selectedItemType != null ||
-                        _selectedSearchField != null ||
-                        _selectedCampus != null
+                    _selectedSearchField != null ||
+                    _selectedCampus != null
                     ? 'Try a different search term or filter.'
                     : 'Try a different search term.',
                 style: AppTypography.bodySmall
@@ -489,7 +489,7 @@ class _FilterDropdown extends StatelessWidget {
     final colors = useTheme(context);
     final shadow = cardShadowDecoration(colors);
     final backgroundColor =
-        colors.isDark ? colors.background.tertiary : const Color(0xFFFFFFFF);
+    colors.isDark ? colors.background.tertiary : const Color(0xFFFFFFFF);
     final isFiltered = selected != null;
 
     return Container(
@@ -518,20 +518,20 @@ class _FilterDropdown extends StatelessWidget {
           ),
           selectedItemBuilder: (context) => options
               .map((o) => Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      o.code == null ? hint : o.label,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ))
+            alignment: Alignment.centerLeft,
+            child: Text(
+              o.code == null ? hint : o.label,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ))
               .toList(),
           items: options
               .map(
                 (o) => DropdownMenuItem<String?>(
-                  value: o.code,
-                  child: Text(o.label),
-                ),
-              )
+              value: o.code,
+              child: Text(o.label),
+            ),
+          )
               .toList(),
           onChanged: onChanged,
         ),
@@ -692,7 +692,7 @@ class _BookCardState extends State<_BookCard>
                                     book.author!,
                                     style: AppTypography.bodySmall
                                         .toTextStyle(
-                                            color: colors.text.secondary),
+                                        color: colors.text.secondary),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -842,7 +842,19 @@ class _BookDetailSheetState extends State<_BookDetailSheet> {
         _isPlacingHold = false;
       });
     } on KohaSessionExpiredException {
-      if (mounted) await AuthScope.of(context).onLogout();
+      debugPrint('[BookDetailSheet] placeHold: session expired (401/403) — logging out');
+      if (!mounted) return;
+      setState(() => _isPlacingHold = false);
+      try {
+        await AuthScope.of(context).onLogout();
+      } catch (e) {
+        // AuthScope not found above this context (e.g. sheet shown outside
+        // its usual tree) — don't crash the app; show a normal error
+        // instead so the person can dismiss and retry navigating normally.
+        debugPrint('[BookDetailSheet] logout failed: $e');
+        if (!mounted) return;
+        setState(() => _holdError = 'Your session has expired. Please log in again.');
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -1043,7 +1055,7 @@ class _BookDetailSheetState extends State<_BookDetailSheet> {
                               value: book.publisher!,
                               colors: colors,
                               showTopBorder:
-                                  book.isbn != null || book.issn != null,
+                              book.isbn != null || book.issn != null,
                             ),
                           if (book.publicationPlace != null)
                             _DetailRow(

@@ -55,7 +55,7 @@ dependencies:
   basic_utils: ^5.7.0
   # Runtime API (preserve/remove) keeps the native splash up through Firebase
   # + session restore so AuthGate never needs a second Flutter splash screen.
-  flutter_native_splash: ^2.4.8
+  flutter_native_splash: ^2.4.7
   shared_preferences: ^2.5.5
   flutter_svg: ^2.3.0
 

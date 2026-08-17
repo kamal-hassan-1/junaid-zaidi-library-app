@@ -96,12 +96,38 @@ class CirculationService {
   /// Places a hold (reservation) on [biblioId] for the logged-in student.
   /// [pickupLibraryId] defaults to the main branch when omitted — the app
   /// doesn't have a branch picker yet.
+  ///
+  /// CONFIRMED against Opac_Endpoint.doc's real Postman testing: this is
+  /// the correct, real endpoint — POST /api/v1/holds with
+  /// {patron_id, biblio_id, pickup_library_id}. (An earlier attempt to
+  /// guess a `/api/v1/public/...` self-service route was wrong — no such
+  /// route is documented and it 404'd; reverted.)
+  ///
+  /// OPEN ISSUE, flagged in the source doc itself, not a code bug: that
+  /// doc's own testing was done with a staff account (apiuser), which has
+  /// full access. A real student's own patron account will likely lack
+  /// the `reserveforothers` permission this endpoint requires, causing a
+  /// 403 even for a hold on themselves — Koha's REST API doesn't appear
+  /// to have a separate unprivileged patron-holds route. Per the doc:
+  /// "Confirm with whoever manages Koha whether student sessions get
+  /// their own more restricted token/permission" — this needs a Koha
+  /// admin to grant the student patron category the permission needed to
+  /// place holds via this endpoint (check Administration → Patron
+  /// categories → permissions, or however this Koha version exposes
+  /// patron-level API permissions). No app-side fix exists for this.
+  ///
+  /// CONFIRMED (real 400 response): `pickup_library_id` is REQUIRED by
+  /// this Koha instance, not optional as first assumed — Koha rejects
+  /// the request outright without it ("Missing property... pickup_
+  /// library_id"). Since the app has no branch picker yet, default to
+  /// [ApiConstants.defaultPickupLibraryId] when the caller doesn't pass
+  /// one, instead of omitting the field.
   Future<Hold> placeHold({required int biblioId, String? pickupLibraryId}) async {
     final patronId = await _requirePatronId();
     final response = await _client.post('/api/v1/holds', body: {
       'patron_id': patronId,
       'biblio_id': biblioId,
-      'pickup_library_id': ?pickupLibraryId,
+      'pickup_library_id': pickupLibraryId ?? ApiConstants.defaultPickupLibraryId,
     });
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw CirculationException(

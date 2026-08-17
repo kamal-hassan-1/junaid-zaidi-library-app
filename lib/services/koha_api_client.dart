@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/api_constants.dart';
@@ -59,6 +60,7 @@ class KohaApiClient {
     final username = await _secureStorage.readUsername();
     final password = await _secureStorage.readPassword();
     if (username == null || username.isEmpty || password == null || password.isEmpty) {
+      debugPrint('[KohaApiClient] ❌ No stored credentials — treating as session expired');
       throw const KohaSessionExpiredException();
     }
     final basicAuthValue = base64Encode(utf8.encode('$username:$password'));
@@ -70,48 +72,47 @@ class KohaApiClient {
 
   Uri _resolve(String path) => Uri.parse('${ApiConstants.kohaBaseUrl}$path');
 
-  Future<http.Response> get(String path) async {
-    final response = await _client
-        .get(_resolve(path), headers: await _authHeaders())
-        .timeout(ApiConstants.requestTimeout);
+  Future<http.Response> _send(
+      String method,
+      String path,
+      Future<http.Response> Function(Uri uri, Map<String, String> headers) request,
+      ) async {
+    final uri = _resolve(path);
+    debugPrint('[KohaApiClient] $method $uri');
+    final http.Response response;
+    try {
+      response = await request(uri, await _authHeaders()).timeout(ApiConstants.requestTimeout);
+    } catch (e) {
+      debugPrint('[KohaApiClient] ❌ $method $uri failed: $e');
+      rethrow;
+    }
+    debugPrint('[KohaApiClient] $method $uri → ${response.statusCode}: '
+        '${response.body.length > 500 ? response.body.substring(0, 500) : response.body}');
     _throwIfSessionExpired(response);
     return response;
   }
 
-  Future<http.Response> post(String path, {Object? body}) async {
-    final response = await _client
-        .post(
-      _resolve(path),
-      headers: await _authHeaders(),
-      body: body == null ? null : jsonEncode(body),
-    )
-        .timeout(ApiConstants.requestTimeout);
-    _throwIfSessionExpired(response);
-    return response;
-  }
+  Future<http.Response> get(String path) =>
+      _send('GET', path, (uri, headers) => _client.get(uri, headers: headers));
 
-  Future<http.Response> put(String path, {Object? body}) async {
-    final response = await _client
-        .put(
-      _resolve(path),
-      headers: await _authHeaders(),
-      body: body == null ? null : jsonEncode(body),
-    )
-        .timeout(ApiConstants.requestTimeout);
-    _throwIfSessionExpired(response);
-    return response;
-  }
+  Future<http.Response> post(String path, {Object? body}) => _send(
+    'POST',
+    path,
+        (uri, headers) => _client.post(uri, headers: headers, body: body == null ? null : jsonEncode(body)),
+  );
 
-  Future<http.Response> delete(String path) async {
-    final response = await _client
-        .delete(_resolve(path), headers: await _authHeaders())
-        .timeout(ApiConstants.requestTimeout);
-    _throwIfSessionExpired(response);
-    return response;
-  }
+  Future<http.Response> put(String path, {Object? body}) => _send(
+    'PUT',
+    path,
+        (uri, headers) => _client.put(uri, headers: headers, body: body == null ? null : jsonEncode(body)),
+  );
+
+  Future<http.Response> delete(String path) =>
+      _send('DELETE', path, (uri, headers) => _client.delete(uri, headers: headers));
 
   void _throwIfSessionExpired(http.Response response) {
     if (response.statusCode == 401 || response.statusCode == 403) {
+      debugPrint('[KohaApiClient] ❌ ${response.statusCode} — session expired or rejected');
       throw const KohaSessionExpiredException();
     }
   }

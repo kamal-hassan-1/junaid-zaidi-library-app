@@ -23,7 +23,7 @@ class ApiConstants {
   //     (e.g. 'http://192.168.1.42:9090'), phone and Koha must be on
   //     the same Wi-Fi/network.
   // Swap it once more for your real production Koha URL before shipping.
-  static const String kohaBaseUrl = 'http://127.0.0.1:9090';
+  static const String kohaBaseUrl = 'http://10.0.2.2:9090';
 
   // CORRECTED (was pointed at /api/v1/auth/password, confirmed 404 by
   // Postman against this real Koha 25 instance — that endpoint doesn't
@@ -86,5 +86,6 @@ class ApiConstants {
   // be built and tested now. Flip this to false the moment a real Koha URL
   // is wired up; nothing else needs to change, since both implementations
   // share the same BiblioSource interface.
-  static const bool useMockKohaBackend = true;
+  static const bool useMockKohaBackend = false;
+  static const String defaultPickupLibraryId = 'CPL';
 }

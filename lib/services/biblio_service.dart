@@ -31,11 +31,11 @@ abstract class BiblioSource {
   /// = title, `'au'` = author, `'su'` = subject, `'nb'` = ISBN, `'ns'` =
   /// ISSN.
   Future<List<Biblio>> search(
-    String query, {
-    String? itemType,
-    String? searchField,
-    String? campus,
-  });
+      String query, {
+        String? itemType,
+        String? searchField,
+        String? campus,
+      });
 }
 
 /// Fetches the bibliographic catalog from the Koha REST API.
@@ -68,33 +68,41 @@ class BiblioService implements BiblioSource {
     }
   }
 
-  /// GET /api/v1/biblios?q=...&itemtype=...&home_library_id=... (or
-  /// ?title=.../author=.../subject=.../isbn=.../issn=... when
-  /// [searchField] narrows the search) — server-side search, optionally
+  /// GET /api/v1/biblios?q=<json> — server-side search, optionally
   /// narrowed to one [itemType], one [campus], and/or one [searchField].
   ///
-  /// [query] goes via Koha's generic `q` param for keyword search, or a
-  /// field-specific named param when [searchField] is set, matching
-  /// Koha REST's usual attribute-name filtering convention. This mapping
-  /// (`itemtype`/`home_library_id` included) is a best guess, not yet
-  /// confirmed against the real Koha instance — see deferred.md (the
-  /// real REST API currently rejects this app's auth entirely, so none
-  /// of this has been exercised against it yet). [searchField] reuses
-  /// the real OPAC website's `idx=` short codes (`ti`/`au`/`su`/`nb`/
-  /// `ns`) so mapping this later is a lookup, not a redesign. [campus]
-  /// reuses the real website's confirmed `homebranch:` facet codes
+  /// Koha's REST API does NOT accept plain `?title=foo&itemtype=BK`
+  /// query-string filters — those are silently ignored or 500. It uses
+  /// a JSON query language in the `q` param instead: `{"field": "value"}`
+  /// for an exact match, `{"field": {"-like": "%value%"}}` for a partial
+  /// match, and multiple top-level keys are AND'd together. This replaces
+  /// the old query-string-param approach, which is why filtering
+  /// previously did nothing against the real server.
+  ///
+  /// [searchField] reuses the real OPAC website's `idx=` short codes
+  /// (`ti`/`au`/`su`/`nb`/`ns`) mapped to biblio-level columns below.
+  /// [campus] reuses the real website's `homebranch:` facet codes
   /// (`isb`/`lhr`/`atd`/`atk`/`swl`/`veh`/`wah`).
+  ///
+  /// NOTE: `itemType` and `campus` (home library) are attributes of
+  /// *items*, not of the biblio record itself, so filtering `/biblios`
+  /// directly by them may not work even with the corrected JSON syntax
+  /// below — Koha may require embedding items (`x-koha-embed: items`
+  /// header) and querying `items.itype` / `items.home_branch` via dot
+  /// notation instead. This hasn't been confirmed against a live server;
+  /// if itemType/campus filters still don't narrow results after this
+  /// fix, that's the next thing to check.
   @override
   Future<List<Biblio>> search(
-    String query, {
-    String? itemType,
-    String? searchField,
-    String? campus,
-  }) {
+      String query, {
+        String? itemType,
+        String? searchField,
+        String? campus,
+      }) {
     final trimmed = query.trim();
     if (trimmed.isEmpty && itemType == null && campus == null) return fetchAll();
 
-    final fieldParam = switch (searchField) {
+    final fieldColumn = switch (searchField) {
       'ti' => 'title',
       'au' => 'author',
       'su' => 'subject',
@@ -103,12 +111,27 @@ class BiblioService implements BiblioSource {
       _ => null,
     };
 
+    final Map<String, dynamic> conditions = {};
+
+    if (trimmed.isNotEmpty) {
+      if (fieldColumn != null) {
+        conditions[fieldColumn] = {'-like': '%$trimmed%'};
+      } else {
+        // Keyword search: match title OR author (biblio-level columns).
+        // Subject/ISBN/ISSN keyword matching may need items/biblioitems
+        // embeds depending on schema — add here once confirmed.
+        conditions['-or'] = [
+          {'title': {'-like': '%$trimmed%'}},
+          {'author': {'-like': '%$trimmed%'}},
+        ];
+      }
+    }
+    if (itemType != null) conditions['item_type'] = itemType;
+    if (campus != null) conditions['items.home_branch'] = campus;
+
     final uri = Uri.parse('${ApiConstants.kohaBaseUrl}/api/v1/biblios')
         .replace(queryParameters: {
-      if (trimmed.isNotEmpty && fieldParam == null) 'q': trimmed,
-      if (trimmed.isNotEmpty && fieldParam != null) fieldParam: trimmed,
-      'itemtype': ?itemType,
-      'home_library_id': ?campus,
+      if (conditions.isNotEmpty) 'q': jsonEncode(conditions),
     });
     return _get(uri);
   }
@@ -131,13 +154,13 @@ class BiblioService implements BiblioSource {
     try {
       response = await _client
           .get(
-            uri,
-            headers: {
-              'Authorization': 'Basic $basicAuth',
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-          )
+        uri,
+        headers: {
+          'Authorization': 'Basic $basicAuth',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      )
           .timeout(ApiConstants.requestTimeout);
     } catch (e, stack) {
       debugPrint('[BiblioService] ❌ Network error: $e');
