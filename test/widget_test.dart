@@ -5,7 +5,8 @@ import 'package:junaid_zaidi_library_app/main.dart';
 
 void main() {
   testWidgets('Home screen renders with bottom tab bar', (WidgetTester tester) async {
-    await tester.pumpWidget(const JunaidZaidiLibraryApp());
+    // Provide initialDarkMode: false for the test
+    await tester.pumpWidget(const JunaidZaidiLibraryApp(initialDarkMode: false));
     await tester.pumpAndSettle();
 
     expect(find.text('Junaid Zaidi Library'), findsOneWidget);

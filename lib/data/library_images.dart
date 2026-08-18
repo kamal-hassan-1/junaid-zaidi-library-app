@@ -25,6 +25,11 @@ final List<LibraryImage> libraryImages = [
     caption: 'Library, front-left angle',
   ),
   const LibraryImage(
+    key: 'library-basement',
+    assetPath: 'assets/library-basement.jpg',
+    caption: 'Basement',
+  ),
+  const LibraryImage(
     key: 'library-ground-floor',
     assetPath: 'assets/library-ground-floor.jpg',
     caption: 'Ground floor',
@@ -33,6 +38,11 @@ final List<LibraryImage> libraryImages = [
     key: 'library-firstFloor',
     assetPath: 'assets/library-firstFloor.jpg',
     caption: 'First floor',
+  ),
+  const LibraryImage(
+    key: 'library-secondFloor',
+    assetPath: 'assets/library-secondFloor.jpg',
+    caption: 'Second floor',
   ),
   const LibraryImage(
     key: 'book-shelves',
@@ -120,6 +130,9 @@ const String logoImagePath = 'assets/logo.png';
 const String homeBackgroundImagePath = 'assets/library-front-view.jpg';
 
 const String libraryGroundFloorImagePath = 'assets/library-ground-floor.jpg';
+const String libraryBasementImagePath = 'assets/library-basement.jpg';
+const String libraryFirstFloorImagePath = 'assets/library-firstFloor.jpg';
+const String librarySecondFloorImagePath = 'assets/library-secondFloor.jpg';
 const String libraryFrontLeftAngleImagePath =
     'assets/library-front-leftAngle-view.jpg';
 const String holdingPhoneImagePath = 'assets/holding_phone.png';

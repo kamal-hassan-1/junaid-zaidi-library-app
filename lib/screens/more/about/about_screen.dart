@@ -4,6 +4,7 @@ import '../../../data/about_content.dart';
 import '../../../data/library_images.dart';
 import '../../../theme/theme.dart';
 import '../../../widgets/ui.dart';
+import 'photo_viewer_screen.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -105,7 +106,7 @@ class AboutScreen extends StatelessWidget {
               ),
             ),
           ),
-          
+
           _groupedList(colors, [
             for (var i = 0; i < aboutLinks.length; i++)
               ListRow(
@@ -122,25 +123,40 @@ class AboutScreen extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final img in libraryImages.take(8))
-                    Padding(
-                      padding: const EdgeInsets.only(right: AppSpacing.sm),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                        child: Image.asset(
-                          img.assetPath,
-                          width: 160,
-                          height: 110,
-                          fit: BoxFit.cover,
+            child: Builder(
+              builder: (context) {
+                final previewImages = libraryImages.take(8).toList();
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < previewImages.length; i++)
+                        Padding(
+                          padding: const EdgeInsets.only(right: AppSpacing.sm),
+                          child: GestureDetector(
+                            onTap: () => PhotoViewerScreen.open(
+                              context,
+                              images: previewImages,
+                              initialIndex: i,
+                            ),
+                            child: Hero(
+                              tag: 'library-photo-${previewImages[i].key}',
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(AppRadius.sm),
+                                child: Image.asset(
+                                  previewImages[i].assetPath,
+                                  width: 160,
+                                  height: 110,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                ],
-              ),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],

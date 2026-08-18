@@ -11,8 +11,10 @@ class _Floor {
 }
 
 const List<_Floor> _floors = [
+  _Floor('Basement', 'assets/library-basement.jpg'),
   _Floor('Ground Floor', 'assets/library-ground-floor.jpg'),
   _Floor('First Floor', 'assets/library-firstFloor.jpg'),
+  _Floor('Second Floor', 'assets/library-secondFloor.jpg'),
 ];
 
 /// Floor Plan (mirrors `app/(tabs)/more/about/floor-plan.js`): a heading +
