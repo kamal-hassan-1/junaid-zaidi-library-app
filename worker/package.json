@@ -1,0 +1,16 @@
+{
+  "name": "jzl-koha-proxy",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "secrets": "echo 'Run: wrangler secret put KOHA_STAFF_USERID / KOHA_STAFF_PASSWORD / GCP_SERVICE_ACCOUNT_JSON'"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0"
+  },
+  "dependencies": {
+    "jose": "^5.9.6"
+  }
+}

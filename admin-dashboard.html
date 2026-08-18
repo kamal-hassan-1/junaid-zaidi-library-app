@@ -318,7 +318,10 @@
   // Must be IDENTICAL to CryptoConstants.passwordEncryptionSharedSecret
   // in lib/config/crypto_constants.dart, or decryption below silently
   // produces garbage instead of a real password.
-  const PENDING_PASSWORD_SECRET = "6c48bf185ec43acc142f2fdad9c30a0a2b6b296d17ab2e691f165c6c3d32f778";
+  //
+  // ROTATED 2026-08-18 — see crypto_constants.dart for why (the old
+  // value had been publicly visible in this file too).
+  const PENDING_PASSWORD_SECRET = "00f1b123b98241b2be5053057ef2b124af243758892e4ddb718d6019009b76a8";
 
   const loginScreen = document.getElementById('login-screen');
   const dashboardScreen = document.getElementById('dashboard-screen');

@@ -1,17 +1,17 @@
 import 'dart:convert';
 
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
+
 import '../config/api_constants.dart';
 import '../models/checkout.dart';
 import '../models/hold.dart';
+import '../models/patron_account.dart';
 import 'biblio_service.dart';
-import 'koha_api_client.dart';
 import 'mock_biblio_service.dart';
-import 'secure_storage_service.dart';
 
 /// Thrown when a circulation request fails for a reason the UI should show
-/// directly (renewal blocked, hold rejected, etc). Distinct from
-/// [KohaSessionExpiredException], which callers should treat as "log the
-/// student out," not display as a normal error.
+/// directly (renewal blocked, hold rejected, etc).
 class CirculationException implements Exception {
   final String message;
   const CirculationException(this.message);
@@ -19,46 +19,46 @@ class CirculationException implements Exception {
   String toString() => message;
 }
 
-/// Checkouts, renewals, and holds for the logged-in student — see the
-/// "Opac Endpoint" PDF for the endpoints this wraps.
+/// Checkouts, renewals, and holds for the logged-in student.
 ///
-/// Every method sources `patron_id` from [SecureStorageService] itself
-/// rather than accepting one as a parameter, so a circulation request can
-/// never be pointed at another patron's records by a caller mistake — the
-/// PDF is explicit that this must never happen.
+/// SECURITY FIX (2026-08-18, see deferred.md / worker/README.md): this
+/// used to call Koha directly with a shared staff-level service account
+/// embedded in the app, with `patron_id` scoping enforced only
+/// client-side — meaning anyone who extracted that credential could
+/// read/act on ANY patron's data, not just the logged-in one. Every
+/// method here now goes through a small Cloudflare Worker instead
+/// ([ApiConstants.circulationProxyBaseUrl]), authenticated with the
+/// student's real Firebase ID token. The Worker verifies that token,
+/// resolves the caller's OWN Koha patron_id itself server-side, and
+/// holds the actual Koha credential — this app never sees it and can't
+/// send a patron_id the Worker would trust anyway.
 ///
 /// Koha checkouts only carry an `item_id` and holds only carry a
 /// `biblio_id` — neither includes title/author (confirmed against real
-/// Postman testing, see deferred.md). [fetchCheckouts]/[fetchHolds] do a
-/// follow-up lookup (item → biblio for checkouts, biblio directly for
-/// holds) so the UI still gets a title to show, using the same
-/// [BiblioSource] OPAC search uses — real or mock, whichever
-/// [ApiConstants.useMockKohaBackend] currently selects.
+/// Koha, see deferred.md). [fetchCheckouts]/[fetchHolds] do a follow-up
+/// lookup (item → biblio for checkouts, biblio directly for holds) so
+/// the UI still gets a title to show, using the same [BiblioSource]
+/// OPAC search uses — real or mock, whichever
+/// [ApiConstants.useMockKohaBackend] currently selects. That lookup
+/// still talks to Koha directly (not through the Worker) — catalog data
+/// is public-equivalent, not the privacy-sensitive surface the Worker
+/// exists for; see [ApiConstants.circulationProxyBaseUrl]'s doc comment.
 class CirculationService {
-  final KohaApiClient _client;
-  final SecureStorageService _secureStorage;
+  final http.Client _client;
   final BiblioSource _biblioSource;
+  final FirebaseAuth _auth;
 
   CirculationService({
-    KohaApiClient? client,
-    SecureStorageService? secureStorage,
+    http.Client? client,
     BiblioSource? biblioSource,
-  })  : _client = client ?? KohaApiClient(),
-        _secureStorage = secureStorage ?? SecureStorageService(),
+    FirebaseAuth? auth,
+  })  : _client = client ?? http.Client(),
         _biblioSource = biblioSource ??
-            (ApiConstants.useMockKohaBackend ? MockBiblioService() : BiblioService());
-
-  Future<String> _requirePatronId() async {
-    final patronId = await _secureStorage.readPatronId();
-    if (patronId == null || patronId.isEmpty) {
-      throw const CirculationException('Not signed in.');
-    }
-    return patronId;
-  }
+            (ApiConstants.useMockKohaBackend ? MockBiblioService() : BiblioService()),
+        _auth = auth ?? FirebaseAuth.instance;
 
   Future<List<Checkout>> fetchCheckouts() async {
-    final patronId = await _requirePatronId();
-    final response = await _client.get('/api/v1/checkouts?patron_id=$patronId');
+    final response = await _get('/checkouts');
     if (response.statusCode != 200) {
       throw CirculationException(
         _errorMessage(response.body) ?? 'Could not load your checkouts (HTTP ${response.statusCode}).',
@@ -70,7 +70,7 @@ class CirculationService {
   }
 
   Future<Checkout> renewCheckout(int checkoutId) async {
-    final response = await _client.post('/api/v1/checkouts/$checkoutId/renewal');
+    final response = await _post('/checkouts/$checkoutId/renewal');
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw CirculationException(
         _errorMessage(response.body) ?? 'Renewal failed (HTTP ${response.statusCode}).',
@@ -81,8 +81,7 @@ class CirculationService {
   }
 
   Future<List<Hold>> fetchHolds() async {
-    final patronId = await _requirePatronId();
-    final response = await _client.get('/api/v1/holds?patron_id=$patronId');
+    final response = await _get('/holds');
     if (response.statusCode != 200) {
       throw CirculationException(
         _errorMessage(response.body) ?? 'Could not load your holds (HTTP ${response.statusCode}).',
@@ -94,38 +93,18 @@ class CirculationService {
   }
 
   /// Places a hold (reservation) on [biblioId] for the logged-in student.
-  /// [pickupLibraryId] defaults to the main branch when omitted — the app
-  /// doesn't have a branch picker yet.
+  /// Which patron this hold is placed for is decided by the Worker from
+  /// the caller's Firebase token, not by anything sent here — there is
+  /// deliberately no `patron_id` in this request at all anymore.
   ///
-  /// CONFIRMED against Opac_Endpoint.doc's real Postman testing: this is
-  /// the correct, real endpoint — POST /api/v1/holds with
-  /// {patron_id, biblio_id, pickup_library_id}. (An earlier attempt to
-  /// guess a `/api/v1/public/...` self-service route was wrong — no such
-  /// route is documented and it 404'd; reverted.)
-  ///
-  /// OPEN ISSUE, flagged in the source doc itself, not a code bug: that
-  /// doc's own testing was done with a staff account (apiuser), which has
-  /// full access. A real student's own patron account will likely lack
-  /// the `reserveforothers` permission this endpoint requires, causing a
-  /// 403 even for a hold on themselves — Koha's REST API doesn't appear
-  /// to have a separate unprivileged patron-holds route. Per the doc:
-  /// "Confirm with whoever manages Koha whether student sessions get
-  /// their own more restricted token/permission" — this needs a Koha
-  /// admin to grant the student patron category the permission needed to
-  /// place holds via this endpoint (check Administration → Patron
-  /// categories → permissions, or however this Koha version exposes
-  /// patron-level API permissions). No app-side fix exists for this.
-  ///
-  /// CONFIRMED (real 400 response): `pickup_library_id` is REQUIRED by
-  /// this Koha instance, not optional as first assumed — Koha rejects
-  /// the request outright without it ("Missing property... pickup_
-  /// library_id"). Since the app has no branch picker yet, default to
+  /// CONFIRMED live against a real Koha instance: `pickup_library_id` is
+  /// REQUIRED — Koha 400s with "Missing property pickup_library_id" if
+  /// it's left out, even though the docs read as if it were optional.
+  /// The app has no branch picker yet, so [pickupLibraryId] falls back to
   /// [ApiConstants.defaultPickupLibraryId] when the caller doesn't pass
   /// one, instead of omitting the field.
   Future<Hold> placeHold({required int biblioId, String? pickupLibraryId}) async {
-    final patronId = await _requirePatronId();
-    final response = await _client.post('/api/v1/holds', body: {
-      'patron_id': patronId,
+    final response = await _post('/holds', body: {
       'biblio_id': biblioId,
       'pickup_library_id': pickupLibraryId ?? ApiConstants.defaultPickupLibraryId,
     });
@@ -138,8 +117,32 @@ class CirculationService {
     return _withHoldBiblioInfo(hold);
   }
 
+  /// Confirmed live (2026-08-18, see deferred.md): posted a real test
+  /// debit and inspected the response, not just the docs.
+  Future<PatronAccount> fetchAccount() async {
+    final response = await _get('/account');
+    if (response.statusCode != 200) {
+      throw CirculationException(
+        _errorMessage(response.body) ?? 'Could not load your account (HTTP ${response.statusCode}).',
+      );
+    }
+    return PatronAccount.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  /// The signed-in patron's checkout limit — how many items their patron
+  /// category (undergrad/grad/PhD/etc, whatever the library's Koha admin
+  /// has configured) is allowed to have out at once. See the Worker's
+  /// `handleCheckoutLimit` for the same real-Koha-confirmed
+  /// `circulation_rules` lookup this used to do directly.
+  Future<int?> fetchCheckoutLimit() async {
+    final response = await _get('/checkout-limit');
+    if (response.statusCode != 200) return null;
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    return decoded['max_issue_qty'] as int?;
+  }
+
   Future<void> cancelHold(int holdId) async {
-    final response = await _client.delete('/api/v1/holds/$holdId');
+    final response = await _delete('/holds/$holdId');
     if (response.statusCode != 200 && response.statusCode != 204) {
       throw CirculationException(
         _errorMessage(response.body) ?? 'Could not cancel hold (HTTP ${response.statusCode}).',
@@ -159,11 +162,14 @@ class CirculationService {
     return hold.withBiblioInfo(title: biblio?.title, author: biblio?.author);
   }
 
-  /// GET /api/v1/items/{item_id} — items carry their own biblio_id, so
-  /// this is the bridge from a checkout (item-level) to a biblio (title).
+  /// Bridge from a checkout (item-level) to a biblio (title) — via the
+  /// Worker's `/items/{id}` (proxied straight through to Koha's
+  /// `GET /api/v1/items/{item_id}`, confirmed live 2026-08-17), not
+  /// called directly, so the app never needs Koha credentials for any
+  /// part of the circulation flow.
   Future<int?> _biblioIdForItem(int itemId) async {
     try {
-      final response = await _client.get('/api/v1/items/$itemId');
+      final response = await _get('/items/$itemId');
       if (response.statusCode != 200) return null;
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       return json['biblio_id'] as int?;
@@ -171,6 +177,31 @@ class CirculationService {
       return null;
     }
   }
+
+  Future<Map<String, String>> _authHeaders() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw const CirculationException('Not signed in.');
+    }
+    final idToken = await user.getIdToken();
+    return {
+      'Authorization': 'Bearer $idToken',
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+  }
+
+  Uri _resolve(String path) => Uri.parse('${ApiConstants.circulationProxyBaseUrl}$path');
+
+  Future<http.Response> _get(String path) async =>
+      _client.get(_resolve(path), headers: await _authHeaders()).timeout(ApiConstants.requestTimeout);
+
+  Future<http.Response> _post(String path, {Object? body}) async => _client
+      .post(_resolve(path), headers: await _authHeaders(), body: body == null ? null : jsonEncode(body))
+      .timeout(ApiConstants.requestTimeout);
+
+  Future<http.Response> _delete(String path) async =>
+      _client.delete(_resolve(path), headers: await _authHeaders()).timeout(ApiConstants.requestTimeout);
 
   String? _errorMessage(String body) {
     try {

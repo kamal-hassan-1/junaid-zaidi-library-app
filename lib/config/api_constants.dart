@@ -23,7 +23,40 @@ class ApiConstants {
   //     (e.g. 'http://192.168.1.42:9090'), phone and Koha must be on
   //     the same Wi-Fi/network.
   // Swap it once more for your real production Koha URL before shipping.
-  static const String kohaBaseUrl = 'http://10.0.2.2:9090';
+  //
+  // Currently set for the Android EMULATOR (per the colleague-tested
+  // branch this was merged from) — swap to 127.0.0.1 for Flutter
+  // web/desktop, or your host's LAN IP for a physical device.
+  //
+  // SECURITY GUARD (added after a repo audit found this app runs Basic
+  // Auth over whatever scheme is set here, resent on every single Koha
+  // request — there's no session/token, see kohaAuthValidationEndpoint's
+  // comment below). Plain HTTP to anything other than a local/dev address
+  // means real student credentials are sniffable in cleartext on any
+  // shared network (campus WiFi being the obvious case). `_requireSafeUrl`
+  // below throws immediately, in EVERY build mode including release (not
+  // just `assert`, which release builds strip), if this is ever set to a
+  // non-local http:// URL — so shipping that mistake fails loudly at
+  // first Koha call instead of silently leaking credentials.
+  static final String kohaBaseUrl = _requireSafeUrl('http://10.0.2.2:9090');
+
+  static String _requireSafeUrl(String url) {
+    final uri = Uri.parse(url);
+    const localHosts = {'127.0.0.1', '10.0.2.2', 'localhost'};
+    final isLocal = localHosts.contains(uri.host) ||
+        uri.host.startsWith('192.168.') ||
+        uri.host.startsWith('10.') ||
+        uri.host.startsWith('172.');
+    if (uri.scheme == 'http' && !isLocal) {
+      throw StateError(
+        'ApiConstants.kohaBaseUrl is "$url" — plain HTTP to a non-local '
+        'host. Koha auth resends the real username/password on every '
+        'request; over HTTP on a shared network that credential is '
+        'trivially sniffable. Use https:// for the real deployment URL.',
+      );
+    }
+    return url;
+  }
 
   // CORRECTED (was pointed at /api/v1/auth/password, confirmed 404 by
   // Postman against this real Koha 25 instance — that endpoint doesn't
@@ -41,7 +74,7 @@ class ApiConstants {
   // koha_api_client.dart) has to resend that same Basic Auth header
   // again — Koha's REST API, at least on this install, has no concept
   // of a session/token at all for this auth path.
-  static const String kohaAuthValidationEndpoint =
+  static final String kohaAuthValidationEndpoint =
       '$kohaBaseUrl/api/v1/auth/password/validation';
 
   static const String firestoreStudentRequestsCollection = 'student_requests';
@@ -87,5 +120,38 @@ class ApiConstants {
   // is wired up; nothing else needs to change, since both implementations
   // share the same BiblioSource interface.
   static const bool useMockKohaBackend = false;
+
+  // ---- Hold pickup location ----
+  //
+  // CONFIRMED against a real Koha instance: POST /api/v1/holds rejects
+  // the request outright ("Missing property pickup_library_id") if this
+  // field is omitted -- it is NOT optional, despite the Koha docs reading
+  // that way. The app has no branch picker yet, so every hold placed
+  // (single, from OPAC's detail sheet, and bulk, from the Book Bag) needs
+  // a default. 'CPL' is a real, registered library code on the Koha
+  // instance this was verified against -- confirm it's still correct (or
+  // swap it) if pointed at a different Koha with different branch codes.
   static const String defaultPickupLibraryId = 'CPL';
+
+  // ---- Circulation proxy (security fix) ----
+  //
+  // Checkouts/holds/fines used to be called directly against Koha using
+  // KohaServiceAccount's staff-level credential embedded in this app —
+  // a real vulnerability, since Koha can't scope that credential to
+  // "only this one patron," and the credential had already leaked (this
+  // repo is public). Those calls now go through a small Cloudflare
+  // Worker (see /worker at the repo root) that verifies the caller's
+  // real Firebase login, resolves THEIR OWN Koha patron_id server-side,
+  // and holds the Koha credential itself instead — nothing the app sends
+  // can make it act on someone else's record.
+  //
+  // Search/catalog browsing (BiblioService) still goes straight to Koha
+  // — deliberately out of scope for the proxy, since catalog data is
+  // public-equivalent (the real OPAC website shows the same data to
+  // anyone), not the privacy-sensitive surface the proxy exists for.
+  //
+  // Not yet deployed — see worker/README.md. Empty until you deploy it
+  // and fill in the real Worker URL (e.g.
+  // 'https://jzl-koha-proxy.<your-subdomain>.workers.dev').
+  static const String circulationProxyBaseUrl = '';
 }

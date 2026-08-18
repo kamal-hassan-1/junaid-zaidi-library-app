@@ -1,11 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../../models/checkout.dart';
 import '../../models/hold.dart';
+import '../../models/patron_account.dart';
 import '../../navigation/auth_scope.dart';
 import '../../services/circulation_service.dart';
-import '../../services/koha_api_client.dart';
+import '../../services/notification_service.dart';
 import '../../theme/theme.dart';
 import '../../widgets/ui.dart';
 
@@ -27,6 +30,12 @@ class _MyBooksScreenState extends State<MyBooksScreen> {
   String? _errorMessage;
   List<Checkout> _checkouts = const [];
   List<Hold> _holds = const [];
+
+  /// Balance/limit are a supplementary summary, not core to this screen's
+  /// job (checkouts/holds) — fetched separately so a failure here (or
+  /// just slower) never blocks the main list from showing.
+  PatronAccount? _account;
+  int? _checkoutLimit;
 
   /// checkoutId/holdId currently mid-action, so only that row shows a
   /// spinner instead of the whole screen.
@@ -54,14 +63,30 @@ class _MyBooksScreenState extends State<MyBooksScreen> {
         _holds = results[1] as List<Hold>;
         _isLoading = false;
       });
-    } on KohaSessionExpiredException {
-      if (mounted) await AuthScope.of(context).onLogout();
+      unawaited(NotificationService.instance.scheduleDueDateReminders(_checkouts));
+      unawaited(_loadAccountSummary());
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _errorMessage = e.toString();
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _loadAccountSummary() async {
+    try {
+      final results = await Future.wait([
+        _circulation.fetchAccount(),
+        _circulation.fetchCheckoutLimit(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _account = results[0] as PatronAccount;
+        _checkoutLimit = results[1] as int?;
+      });
+    } catch (_) {
+      // Silent — see field docs above. Checkouts/holds already loaded fine.
     }
   }
 
@@ -76,8 +101,7 @@ class _MyBooksScreenState extends State<MyBooksScreen> {
             if (c.checkoutId == renewed.checkoutId) renewed else c,
         ];
       });
-    } on KohaSessionExpiredException {
-      if (mounted) await AuthScope.of(context).onLogout();
+      unawaited(NotificationService.instance.scheduleDueDateReminders(_checkouts));
     } catch (e) {
       if (mounted) _showActionError(e);
     } finally {
@@ -91,8 +115,6 @@ class _MyBooksScreenState extends State<MyBooksScreen> {
       await _circulation.cancelHold(hold.holdId);
       if (!mounted) return;
       setState(() => _holds = _holds.where((h) => h.holdId != hold.holdId).toList());
-    } on KohaSessionExpiredException {
-      if (mounted) await AuthScope.of(context).onLogout();
     } catch (e) {
       if (mounted) _showActionError(e);
     } finally {
@@ -173,6 +195,15 @@ class _MyBooksScreenState extends State<MyBooksScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (_account != null) ...[
+            _AccountSummaryCard(
+              account: _account!,
+              checkoutCount: _checkouts.length,
+              checkoutLimit: _checkoutLimit,
+              colors: colors,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
           Heading(level: 5, text: 'Checkouts'),
           const SizedBox(height: AppSpacing.ms),
           if (_checkouts.isEmpty)
@@ -231,6 +262,83 @@ class _MyBooksScreenState extends State<MyBooksScreen> {
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(children: rows),
+    );
+  }
+}
+
+/// Balance + borrowing-limit summary shown above Checkouts. Koha's
+/// `/account` response doesn't include a currency code or symbol
+/// (confirmed — it's a bare number), so "Rs." here is an assumption
+/// based on this being a Pakistani university library, not something the
+/// API told us — worth confirming against the real deployed Koha's
+/// configured currency before shipping.
+class _AccountSummaryCard extends StatelessWidget {
+  final PatronAccount account;
+  final int checkoutCount;
+  final int? checkoutLimit;
+  final SemanticColors colors;
+
+  const _AccountSummaryCard({
+    required this.account,
+    required this.checkoutCount,
+    required this.checkoutLimit,
+    required this.colors,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final shadow = cardShadowDecoration(colors);
+    final hasBalance = account.hasOutstandingBalance;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: colors.background.secondary,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: shadow.border,
+        boxShadow: shadow.boxShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AppText('Account balance', variant: 'bodySmall', tone: 'secondary'),
+                    const SizedBox(height: AppSpacing.xs),
+                    AppText(
+                      'Rs. ${account.balance.toStringAsFixed(2)}',
+                      variant: 'h5',
+                      tone: hasBalance ? 'error' : 'primary',
+                    ),
+                  ],
+                ),
+              ),
+              if (checkoutLimit != null)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    AppText('Books borrowed', variant: 'bodySmall', tone: 'secondary'),
+                    const SizedBox(height: AppSpacing.xs),
+                    AppText('$checkoutCount of $checkoutLimit', variant: 'h5'),
+                  ],
+                ),
+            ],
+          ),
+          if (hasBalance) ...[
+            const SizedBox(height: AppSpacing.sm),
+            AppText(
+              'Outstanding fines may block new holds or renewals until paid.',
+              variant: 'bodySmall',
+              tone: 'error',
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

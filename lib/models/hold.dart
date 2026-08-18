@@ -2,13 +2,13 @@
 /// `GET /api/v1/holds`. Koha holds are placed at the biblio (title)
 /// level — a specific copy is only assigned once the hold is filled.
 ///
-/// Field names/shape confirmed against real Postman testing (see
-/// deferred.md) for most fields — `status`/`pickupLibraryId` are the
-/// exception: the screenshot they were built from was cut off before
-/// showing whether/how they appear on a real `GET` response, so treat
-/// those two specifically as unconfirmed. [title]/[author] aren't part
-/// of the real response at all — filled in separately by
-/// [CirculationService] via a biblio lookup.
+/// Field names/shape fully confirmed live (2026-08-18, see deferred.md):
+/// placed a real test hold and inspected the response directly.
+/// `status` is `null` until the hold is filled (not `'W'` until then, as
+/// previously guessed) and `priority` (added this round) is a real
+/// 1-indexed queue-position field — `1` means "next in line". [title]/
+/// [author] aren't part of the real response at all — filled in
+/// separately by [CirculationService] via a biblio lookup.
 class Hold {
   final int holdId;
   final int biblioId;
@@ -18,10 +18,12 @@ class Hold {
   final DateTime? expirationDate;
   final DateTime? cancellationDate;
   final String? cancellationReason;
-
-  /// Unconfirmed — see class doc.
   final String? status;
   final String? pickupLibraryId;
+
+  /// 1-indexed queue position — `1` means next in line for this title.
+  /// `null` once the hold is waiting/filled (Koha stops ranking it).
+  final int? priority;
 
   final String? title;
   final String? author;
@@ -37,6 +39,7 @@ class Hold {
     this.cancellationReason,
     this.status,
     this.pickupLibraryId,
+    this.priority,
     this.title,
     this.author,
   });
@@ -47,6 +50,7 @@ class Hold {
   String get statusLabel {
     if (isCancelled) return 'Cancelled';
     if (isWaiting) return 'Ready for pickup';
+    if (priority != null && priority! > 0) return 'Queue position #$priority';
     return 'Pending';
   }
 
@@ -61,6 +65,7 @@ class Hold {
         cancellationReason: cancellationReason,
         status: status,
         pickupLibraryId: pickupLibraryId,
+        priority: priority,
         title: title,
         author: author,
       );
@@ -77,6 +82,7 @@ class Hold {
       cancellationReason: json['cancellation_reason'] as String?,
       status: json['status'] as String?,
       pickupLibraryId: json['pickup_library_id'] as String?,
+      priority: json['priority'] as int?,
     );
   }
 }
