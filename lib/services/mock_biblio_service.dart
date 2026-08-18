@@ -1,3 +1,4 @@
+import '../models/availability.dart';
 import '../models/biblio.dart';
 import 'biblio_service.dart';
 
@@ -298,5 +299,67 @@ class MockBiblioService implements BiblioSource {
               (b.issn ?? '').toLowerCase().contains(trimmed);
       }
     }).toList();
+  }
+
+  @override
+  Future<List<Biblio>> advancedSearch({
+    String? title,
+    String? author,
+    String? isbn,
+    String? issn,
+    String? publisher,
+    String? seriesTitle,
+    String? publicationYear,
+    String? itemType,
+  }) async {
+    await Future.delayed(_simulatedLatency);
+
+    bool matches(String? field, String? value) {
+      final trimmed = value?.trim().toLowerCase();
+      if (trimmed == null || trimmed.isEmpty) return true;
+      return (field ?? '').toLowerCase().contains(trimmed);
+    }
+
+    return _catalog.where((b) {
+      if (itemType != null && b.itemType != itemType) return false;
+      return matches(b.title, title) &&
+          matches(b.author, author) &&
+          matches(b.isbn, isbn) &&
+          matches(b.issn, issn) &&
+          matches(b.publisher, publisher) &&
+          matches(b.seriesTitle, seriesTitle) &&
+          matches(b.publicationYear, publicationYear);
+    }).toList();
+  }
+
+  /// No real per-item data to draw on, so this fakes a deterministic mix
+  /// of available/checked-out/no-items so the UI has all three states to
+  /// render during development, without the flakiness of real random data.
+  @override
+  Future<Availability> fetchAvailability(int biblioId) async {
+    await Future.delayed(_simulatedLatency);
+    switch (biblioId % 4) {
+      case 0:
+        return Availability.noItemsState;
+      case 1:
+        return Availability(
+          status: AvailabilityStatus.checkedOut,
+          totalCopies: 1,
+          availableCopies: 0,
+          nextDueDate: DateTime.now().add(Duration(days: 3 + biblioId % 10)),
+        );
+      case 2:
+        return const Availability(
+          status: AvailabilityStatus.available,
+          totalCopies: 2,
+          availableCopies: 1,
+        );
+      default:
+        return const Availability(
+          status: AvailabilityStatus.available,
+          totalCopies: 1,
+          availableCopies: 1,
+        );
+    }
   }
 }

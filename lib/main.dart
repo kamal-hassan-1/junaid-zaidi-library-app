@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'firebase_bootstrap.dart';
 import 'navigation/theme_scope.dart';
 import 'screens/auth/auth_gate.dart';
+import 'services/notification_service.dart';
 import 'services/theme_prefs.dart';
 import 'theme/semantic/dark.dart';
 import 'theme/semantic/light.dart';
@@ -19,6 +22,10 @@ void main() async {
   // Kick off Firebase without awaiting — runApp paints SplashScreen ASAP,
   // so Android 12+ isn't stuck on a blank bg during SDK init.
   startFirebase();
+  // Sets up the local-notifications plugin + device timezone. Doesn't
+  // request permission itself — that only happens once My Books actually
+  // has something to remind about, see NotificationService.
+  unawaited(NotificationService.instance.init());
 
   final isDarkMode = await ThemePrefs().isDarkMode();
 

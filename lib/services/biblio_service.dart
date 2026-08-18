@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/api_constants.dart';
 import '../config/koha_service_account.dart';
+import '../models/availability.dart';
 import '../models/biblio.dart';
 
 /// Common shape for anything the OPAC screen can pull books from —
@@ -36,6 +37,27 @@ abstract class BiblioSource {
     String? searchField,
     String? campus,
   });
+
+  /// Whether/when [biblioId] can be borrowed right now — see
+  /// [Availability].
+  Future<Availability> fetchAvailability(int biblioId);
+
+  /// Multi-field search — every non-null/non-empty field is ANDed
+  /// together (all substring matches), unlike [search]'s single free-text
+  /// box. Field set mirrors what's actually on [Biblio] (confirmed real
+  /// biblio columns, see deferred.md): title, author, isbn, issn,
+  /// publisher, seriesTitle, publicationYear, plus the same [itemType]
+  /// used elsewhere.
+  Future<List<Biblio>> advancedSearch({
+    String? title,
+    String? author,
+    String? isbn,
+    String? issn,
+    String? publisher,
+    String? seriesTitle,
+    String? publicationYear,
+    String? itemType,
+  });
 }
 
 /// Fetches the bibliographic catalog from the Koha REST API.
@@ -55,8 +77,9 @@ class BiblioService implements BiblioSource {
   @override
   Future<List<Biblio>> fetchAll() => _get(Uri.parse('${ApiConstants.kohaBaseUrl}/api/v1/biblios'));
 
-  /// GET /api/v1/biblios/{biblio_id}. Best guess on the real endpoint
-  /// shape — see deferred.md.
+  /// GET /api/v1/biblios/{biblio_id}. Shape confirmed against a real
+  /// local Koha instance (2026-08-17, see deferred.md) — single JSON
+  /// object, not wrapped in a list.
   @override
   Future<Biblio?> fetchOne(int biblioId) async {
     final uri = Uri.parse('${ApiConstants.kohaBaseUrl}/api/v1/biblios/$biblioId');
@@ -68,22 +91,27 @@ class BiblioService implements BiblioSource {
     }
   }
 
-  /// GET /api/v1/biblios?q=...&itemtype=...&home_library_id=... (or
-  /// ?title=.../author=.../subject=.../isbn=.../issn=... when
-  /// [searchField] narrows the search) — server-side search, optionally
-  /// narrowed to one [itemType], one [campus], and/or one [searchField].
+  /// GET /api/v1/biblios?q=`{...}` (JSON-encoded) — server-side search, optionally
+  /// narrowed to one [itemType] and/or one [searchField].
   ///
-  /// [query] goes via Koha's generic `q` param for keyword search, or a
-  /// field-specific named param when [searchField] is set, matching
-  /// Koha REST's usual attribute-name filtering convention. This mapping
-  /// (`itemtype`/`home_library_id` included) is a best guess, not yet
-  /// confirmed against the real Koha instance — see deferred.md (the
-  /// real REST API currently rejects this app's auth entirely, so none
-  /// of this has been exercised against it yet). [searchField] reuses
-  /// the real OPAC website's `idx=` short codes (`ti`/`au`/`su`/`nb`/
-  /// `ns`) so mapping this later is a lookup, not a redesign. [campus]
-  /// reuses the real website's confirmed `homebranch:` facet codes
-  /// (`isb`/`lhr`/`atd`/`atk`/`swl`/`veh`/`wah`).
+  /// Confirmed live against a real Koha instance (2026-08-17, see
+  /// deferred.md) that `/api/v1/biblios` does **not** take simple named
+  /// query params (`title=`, `itemtype=`, etc. all 400) — the only
+  /// filter mechanism is a single `q` param holding a JSON-encoded
+  /// SQL::Abstract-style condition: a plain hash ANDs its keys
+  /// (`{"item_type":"BK"}`), `{"field":{"-like":"%x%"}}` does a
+  /// substring match, and a `-or` key holding an array ORs its entries
+  /// together with the rest ANDed in — e.g.
+  /// `{"item_type":"BK","-or":[{"title":{"-like":"%x%"}},{"author":...}]}`.
+  /// All of this was verified with real requests, not inferred.
+  ///
+  /// [campus] has no effect here — confirmed `home_library_id` is an
+  /// *item*-level field (see `/api/v1/items/{id}`), not a filterable
+  /// attribute on the biblio search at all. Likewise [searchField]
+  /// dropped `su` (subject) — no such field exists on the real biblio
+  /// response. Kept as parameters for interface compatibility with
+  /// [MockBiblioService], which still supports both against its own
+  /// canned data.
   @override
   Future<List<Biblio>> search(
     String query, {
@@ -92,24 +120,103 @@ class BiblioService implements BiblioSource {
     String? campus,
   }) {
     final trimmed = query.trim();
-    if (trimmed.isEmpty && itemType == null && campus == null) return fetchAll();
+    if (trimmed.isEmpty && itemType == null) return fetchAll();
 
-    final fieldParam = switch (searchField) {
+    final field = switch (searchField) {
       'ti' => 'title',
       'au' => 'author',
-      'su' => 'subject',
       'nb' => 'isbn',
       'ns' => 'issn',
       _ => null,
     };
 
+    Map<String, dynamic>? textCondition;
+    if (trimmed.isNotEmpty) {
+      if (field != null) {
+        textCondition = {field: {'-like': '%$trimmed%'}};
+      } else {
+        // Keyword: OR across every text field the real API exposes.
+        textCondition = {
+          '-or': [
+            for (final f in ['title', 'author', 'isbn', 'issn'])
+              {f: {'-like': '%$trimmed%'}},
+          ],
+        };
+      }
+    }
+
+    final condition = <String, dynamic>{
+      'item_type': ?itemType,
+      ...?textCondition,
+    };
+
     final uri = Uri.parse('${ApiConstants.kohaBaseUrl}/api/v1/biblios')
-        .replace(queryParameters: {
-      if (trimmed.isNotEmpty && fieldParam == null) 'q': trimmed,
-      if (trimmed.isNotEmpty && fieldParam != null) fieldParam: trimmed,
-      'itemtype': ?itemType,
-      'home_library_id': ?campus,
-    });
+        .replace(queryParameters: {'q': jsonEncode(condition)});
+    return _get(uri);
+  }
+
+  /// GET /api/v1/public/biblios/{biblio_id}/items. Confirmed live
+  /// (2026-08-17, see deferred.md) to be genuinely public — no
+  /// credentials needed, unlike almost every other Koha call this app
+  /// makes. Deliberately does **not** send the service-account Basic
+  /// Auth header other methods here use; availability is meant to be
+  /// visible to anyone browsing the catalog, same as the real OPAC
+  /// website.
+  @override
+  Future<Availability> fetchAvailability(int biblioId) async {
+    final uri = Uri.parse('${ApiConstants.kohaBaseUrl}/api/v1/public/biblios/$biblioId/items');
+    try {
+      final response =
+          await _client.get(uri, headers: {'Accept': 'application/json'}).timeout(ApiConstants.requestTimeout);
+      if (response.statusCode != 200) return Availability.noItemsState;
+      return Availability.fromItemsJson(jsonDecode(response.body) as List<dynamic>);
+    } catch (_) {
+      return Availability.noItemsState;
+    }
+  }
+
+  /// GET /api/v1/biblios?q=`{...}` with every given field ANDed together
+  /// as a `-like` substring match, plus [itemType] as an exact match —
+  /// same JSON condition mechanism as [search], just with more than one
+  /// field at once. Live-verified against a real Koha instance
+  /// (2026-08-17): `{"title":{"-like":"%x%"},"author":{"-like":"%y%"}}`
+  /// correctly ANDs and returns only records matching both, and
+  /// `publication_year`/`publisher` are real, queryable columns (present
+  /// in the OpenAPI schema and accepted without error), even though the
+  /// seed data used for that test happened to have them empty. See
+  /// deferred.md for the exact requests run.
+  @override
+  Future<List<Biblio>> advancedSearch({
+    String? title,
+    String? author,
+    String? isbn,
+    String? issn,
+    String? publisher,
+    String? seriesTitle,
+    String? publicationYear,
+    String? itemType,
+  }) {
+    Map<String, String>? like(String? value) {
+      final trimmed = value?.trim();
+      if (trimmed == null || trimmed.isEmpty) return null;
+      return {'-like': '%$trimmed%'};
+    }
+
+    final condition = <String, dynamic>{
+      'item_type': ?itemType,
+      'title': ?like(title),
+      'author': ?like(author),
+      'isbn': ?like(isbn),
+      'issn': ?like(issn),
+      'publisher': ?like(publisher),
+      'series_title': ?like(seriesTitle),
+      'publication_year': ?like(publicationYear),
+    };
+
+    if (condition.isEmpty) return fetchAll();
+
+    final uri = Uri.parse('${ApiConstants.kohaBaseUrl}/api/v1/biblios')
+        .replace(queryParameters: {'q': jsonEncode(condition)});
     return _get(uri);
   }
 

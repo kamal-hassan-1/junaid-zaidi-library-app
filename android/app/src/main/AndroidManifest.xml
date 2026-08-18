@@ -1,4 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- mobile_scanner (barcode scanning, OPAC quick-lookup) -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
+    <!-- flutter_local_notifications (due-date reminders). Only requests
+         the standard runtime notification prompt (POST_NOTIFICATIONS) —
+         deliberately NOT requesting SCHEDULE_EXACT_ALARM, since reminders
+         use inexact scheduling and don't need to-the-minute precision. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="Junaid Zaidi Library"
         android:name="${applicationName}"

@@ -29,14 +29,24 @@
 /// access gate — this secret is a second layer on top of that, not a
 /// replacement for it.
 ///
-/// TODO(Muaaz): this is a real, working value for local testing — NOT
-/// a placeholder — generated with `openssl rand -hex 32`. Generate a
-/// fresh one before shipping to production the same way, and update it
-/// in BOTH this file and admin-dashboard.html's PENDING_PASSWORD_SECRET
-/// constant together — they must always match exactly.
+/// ROTATED 2026-08-18: a repo audit found the previous value had been
+/// sitting in this file (and admin-dashboard.html) in a PUBLIC GitHub
+/// repo — anyone could read it and decrypt any pending student's real
+/// password. Treat the old value as permanently burned even though it's
+/// gone from HEAD now — it's still in git history, which is exactly why
+/// a leaked secret must be rotated, not just deleted. Generated with
+/// `openssl rand -hex 32`.
+///
+/// TODO: this repo is PUBLIC. Every value committed here is visible to
+/// anyone, forever (git history survives even after a file changes).
+/// A real fix needs this secret to stop living in a public repo at all —
+/// e.g. build-time injection from a private source — not just a fresh
+/// rotation. Rotating buys time, it doesn't close the actual hole.
+/// Update this file AND admin-dashboard.html's PENDING_PASSWORD_SECRET
+/// together — they must always match exactly.
 class CryptoConstants {
   const CryptoConstants._();
 
   static const String passwordEncryptionSharedSecret =
-      '6c48bf185ec43acc142f2fdad9c30a0a2b6b296d17ab2e691f165c6c3d32f778';
+      '00f1b123b98241b2be5053057ef2b124af243758892e4ddb718d6019009b76a8';
 }

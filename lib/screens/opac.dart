@@ -4,14 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 
 import '../config/api_constants.dart';
+import '../models/availability.dart';
 import '../models/biblio.dart';
-import '../navigation/auth_scope.dart';
 import '../services/biblio_service.dart';
+import '../services/book_bag_service.dart';
 import '../services/circulation_service.dart';
-import '../services/koha_api_client.dart';
 import '../services/mock_biblio_service.dart';
+import '../services/search_history_service.dart';
 import '../theme/theme.dart';
 import '../widgets/ui.dart';
+import 'advanced_search_screen.dart';
+import 'barcode_scanner_screen.dart';
+import 'book_bag_screen.dart';
 
 /// OPAC (Online Public Access Catalog) — full catalog search screen.
 ///
@@ -88,6 +92,11 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
   String? _errorMessage;
   List<Biblio> _filteredBooks = const [];
 
+  /// Set only while showing results from [AdvancedSearchScreen] — takes
+  /// over from the plain search bar/filters until the user types in the
+  /// search bar again or changes a filter, either of which clears it.
+  AdvancedSearchQuery? _advancedQuery;
+
   Timer? _debounceTimer;
 
   final BiblioSource _biblioService =
@@ -97,6 +106,8 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _loadBooks();
+    BookBagService.instance.ensureLoaded();
+    SearchHistoryService.instance.ensureLoaded();
   }
 
   @override
@@ -162,7 +173,12 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
     setState(() {
       _isSearching = true;
       _errorMessage = null;
+      _advancedQuery = null;
     });
+
+    if (query.trim().isNotEmpty) {
+      unawaited(SearchHistoryService.instance.add(query.trim()));
+    }
 
     try {
       final results = await _biblioService.search(
@@ -183,6 +199,52 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
         _isSearching = false;
       });
     }
+  }
+
+  /// Runs an [AdvancedSearchScreen] result — replaces whatever the plain
+  /// search bar/filters had, since the two are separate ways of
+  /// producing a result set, not composable in the current UI.
+  Future<void> _runAdvancedSearch(AdvancedSearchQuery query) async {
+    setState(() {
+      _isSearching = true;
+      _errorMessage = null;
+      _advancedQuery = query;
+      _query = '';
+      _selectedItemType = null;
+      _selectedSearchField = null;
+      _selectedCampus = null;
+    });
+
+    try {
+      final results = await _biblioService.advancedSearch(
+        title: query.title,
+        author: query.author,
+        isbn: query.isbn,
+        issn: query.issn,
+        publisher: query.publisher,
+        seriesTitle: query.seriesTitle,
+        publicationYear: query.publicationYear,
+        itemType: query.itemType,
+      );
+      if (!mounted) return;
+      setState(() {
+        _filteredBooks = results;
+        _isSearching = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = e.toString();
+        _isSearching = false;
+      });
+    }
+  }
+
+  Future<void> _openAdvancedSearch() async {
+    final query = await Navigator.of(context).push<AdvancedSearchQuery>(
+      MaterialPageRoute(builder: (_) => const AdvancedSearchScreen()),
+    );
+    if (query != null && mounted) _runAdvancedSearch(query);
   }
 
   /// Type filter changes apply immediately (no debounce — it's a discrete
@@ -214,8 +276,20 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => _BookDetailSheet(book: book, colors: colors),
+      builder: (ctx) => _BookDetailSheet(book: book, colors: colors, biblioService: _biblioService),
     );
+  }
+
+  /// Scans a barcode/ISBN and jumps straight to that book's detail sheet
+  /// — a mobile-native shortcut the real OPAC website has no equivalent
+  /// for.
+  Future<void> _openScanner() async {
+    final result = await Navigator.of(context).push<Biblio>(
+      MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()),
+    );
+    if (result != null && mounted) {
+      _showBookDetails(context, result);
+    }
   }
 
   @override
@@ -230,6 +304,28 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
         scrolledUnderElevation: 0,
         title: const Heading(level: 5, text: 'OPAC'),
         actions: [
+          IconButton(
+            icon: Icon(LucideIcons.scan_barcode, size: 20, color: colors.icon),
+            onPressed: _openScanner,
+            tooltip: 'Scan a barcode',
+          ),
+          ListenableBuilder(
+            listenable: BookBagService.instance,
+            builder: (context, _) {
+              final count = BookBagService.instance.count;
+              return IconButton(
+                icon: Badge(
+                  isLabelVisible: count > 0,
+                  label: Text('$count'),
+                  child: Icon(LucideIcons.shopping_bag, size: 20, color: colors.icon),
+                ),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const BookBagScreen()),
+                ),
+                tooltip: 'Book bag',
+              );
+            },
+          ),
           IconButton(
             icon: Icon(LucideIcons.refresh_cw, size: 20, color: colors.icon),
             onPressed: _loadBooks,
@@ -259,7 +355,65 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
               placeholder: 'Search by title, author, or ISBN...',
             ),
 
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: AppSpacing.xs),
+
+            // --- Advanced search entry point ---
+            Align(
+              alignment: Alignment.centerRight,
+              child: AppButton(
+                label: 'Advanced Search',
+                variant: 'text',
+                fullWidth: false,
+                icon: LucideIcons.sliders_horizontal,
+                onPressed: _openAdvancedSearch,
+              ),
+            ),
+
+            // --- Recent searches (local-only — no such Koha endpoint,
+            // see SearchHistoryService) — shown while the search bar is
+            // empty so it doesn't compete with live results. ---
+            if (_query.trim().isEmpty && _advancedQuery == null)
+              ListenableBuilder(
+                listenable: SearchHistoryService.instance,
+                builder: (context, _) {
+                  final history = SearchHistoryService.instance.queries;
+                  if (history.isEmpty) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            AppText('Recent searches', variant: 'bodySmall', tone: 'secondary'),
+                            GestureDetector(
+                              onTap: () => SearchHistoryService.instance.clear(),
+                              child: AppText('Clear', variant: 'bodySmall', tone: 'brand'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Wrap(
+                          spacing: AppSpacing.xs,
+                          runSpacing: AppSpacing.xs,
+                          children: [
+                            for (final q in history)
+                              _HistoryChip(
+                                label: q,
+                                onTap: () {
+                                  setState(() => _query = q);
+                                  _onSubmitted(q);
+                                },
+                                onRemove: () => SearchHistoryService.instance.remove(q),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
 
             // --- Filters: search field (mirrors the real OPAC's idx=) + item type ---
             Row(
@@ -305,7 +459,8 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
                     Icon(LucideIcons.library, size: 16, color: colors.brand),
                     const SizedBox(width: AppSpacing.xs),
                     Text(
-                      _query.trim().isEmpty &&
+                      _advancedQuery == null &&
+                              _query.trim().isEmpty &&
                               _selectedItemType == null &&
                               _selectedSearchField == null &&
                               _selectedCampus == null
@@ -455,10 +610,63 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
         return _BookCard(
           book: book,
           colors: colors,
+          biblioService: _biblioService,
           onTap: () => _showBookDetails(context, book),
           index: index,
         );
       },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  Recent-search chip
+// ---------------------------------------------------------------------------
+
+/// One tappable past query in the "Recent searches" row — tap the label
+/// to re-run it, tap the x to drop just that one entry.
+class _HistoryChip extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  final VoidCallback onRemove;
+
+  const _HistoryChip({
+    required this.label,
+    required this.onTap,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = useTheme(context);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+        decoration: BoxDecoration(
+          color: colors.background.secondary,
+          borderRadius: BorderRadius.circular(AppRadius.full),
+          border: Border.all(color: colors.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.clock, size: 12, color: colors.text.tertiary),
+            const SizedBox(width: AppSpacing.xs),
+            AppText(label, variant: 'bodySmall', tone: 'secondary'),
+            const SizedBox(width: AppSpacing.xs),
+            GestureDetector(
+              onTap: onRemove,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.xs),
+                child: Icon(LucideIcons.x, size: 12, color: colors.text.tertiary),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -547,12 +755,14 @@ class _FilterDropdown extends StatelessWidget {
 class _BookCard extends StatefulWidget {
   final Biblio book;
   final SemanticColors colors;
+  final BiblioSource biblioService;
   final VoidCallback onTap;
   final int index;
 
   const _BookCard({
     required this.book,
     required this.colors,
+    required this.biblioService,
     required this.onTap,
     required this.index,
   });
@@ -635,19 +845,11 @@ class _BookCardState extends State<_BookCard>
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // --- Book icon / cover placeholder ---
+                    // --- Book cover (real image, falls back to icon) ---
                     Container(
                       width: 52,
                       height: 70,
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            accent,
-                            accent.withValues(alpha: 0.7),
-                          ],
-                        ),
                         borderRadius: BorderRadius.circular(AppRadius.sm),
                         boxShadow: [
                           BoxShadow(
@@ -657,12 +859,8 @@ class _BookCardState extends State<_BookCard>
                           ),
                         ],
                       ),
-                      alignment: Alignment.center,
-                      child: Icon(
-                        LucideIcons.book_open,
-                        size: 22,
-                        color: Colors.white.withValues(alpha: 0.9),
-                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: _BookCoverImage(book: book, accent: accent, iconSize: 22),
                     ),
 
                     const SizedBox(width: AppSpacing.ms),
@@ -722,28 +920,55 @@ class _BookCardState extends State<_BookCard>
                                 ),
                             ],
                           ),
+                          const SizedBox(height: AppSpacing.xs),
+                          _AvailabilityBadge(
+                            biblioService: widget.biblioService,
+                            biblioId: book.biblioId,
+                            colors: colors,
+                          ),
                         ],
                       ),
                     ),
 
                     const SizedBox(width: AppSpacing.sm),
 
-                    // --- Type badge ---
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.sm,
-                        vertical: AppSpacing.xs,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colors.brand.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(AppRadius.full),
-                      ),
-                      child: Text(
-                        book.itemTypeLabel,
-                        style: AppTypography.caption
-                            .toTextStyle(color: colors.brand)
-                            .copyWith(fontWeight: FontWeight.w600),
-                      ),
+                    // --- Type badge + book bag toggle ---
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.sm,
+                            vertical: AppSpacing.xs,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.brand.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(AppRadius.full),
+                          ),
+                          child: Text(
+                            book.itemTypeLabel,
+                            style: AppTypography.caption
+                                .toTextStyle(color: colors.brand)
+                                .copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        ListenableBuilder(
+                          listenable: BookBagService.instance,
+                          builder: (context, _) {
+                            final inBag = BookBagService.instance.contains(book.biblioId);
+                            return GestureDetector(
+                              onTap: () => BookBagService.instance.toggle(book.biblioId),
+                              behavior: HitTestBehavior.opaque,
+                              child: Icon(
+                                inBag ? LucideIcons.shopping_bag : LucideIcons.plus,
+                                size: 16,
+                                color: inBag ? colors.brand : colors.icon,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -752,6 +977,134 @@ class _BookCardState extends State<_BookCard>
           ),
         ),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  Book Cover Image (real cover from ISBN, falls back to a gradient icon)
+// ---------------------------------------------------------------------------
+
+class _BookCoverImage extends StatelessWidget {
+  final Biblio book;
+  final Color accent;
+  final double iconSize;
+
+  const _BookCoverImage({required this.book, required this.accent, required this.iconSize});
+
+  /// Koha ISBN fields sometimes carry multiple values or trailing
+  /// qualifiers, e.g. `"0131103709 | 0131103628 (pbk.)"` — take the
+  /// first token and strip everything but digits/X.
+  String? get _cleanIsbn {
+    final isbn = book.isbn;
+    if (isbn == null || isbn.trim().isEmpty) return null;
+    final firstToken = isbn.split(RegExp(r'[|,]')).first;
+    final digits = firstToken.replaceAll(RegExp(r'[^0-9Xx]'), '');
+    return digits.isEmpty ? null : digits;
+  }
+
+  Widget _placeholder() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [accent, accent.withValues(alpha: 0.7)],
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Icon(LucideIcons.book_open, size: iconSize, color: Colors.white.withValues(alpha: 0.9)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isbn = _cleanIsbn;
+    if (isbn == null) return _placeholder();
+    // `default=false` makes OpenLibrary 404 when it has no real cover,
+    // instead of silently serving a generic placeholder image — lets
+    // errorBuilder correctly fall back to this app's own placeholder.
+    return Image.network(
+      'https://covers.openlibrary.org/b/isbn/$isbn-M.jpg?default=false',
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, progress) => progress == null ? child : _placeholder(),
+      errorBuilder: (context, error, stack) => _placeholder(),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  Availability Badge (fetched per-card, real Koha item status)
+// ---------------------------------------------------------------------------
+
+class _AvailabilityBadge extends StatefulWidget {
+  final BiblioSource biblioService;
+  final int biblioId;
+  final SemanticColors colors;
+
+  const _AvailabilityBadge({
+    required this.biblioService,
+    required this.biblioId,
+    required this.colors,
+  });
+
+  @override
+  State<_AvailabilityBadge> createState() => _AvailabilityBadgeState();
+}
+
+class _AvailabilityBadgeState extends State<_AvailabilityBadge> {
+  Availability? _availability;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.biblioService.fetchAvailability(widget.biblioId).then((a) {
+      if (mounted) setState(() => _availability = a);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = widget.colors;
+    final availability = _availability;
+
+    if (availability == null) {
+      return SizedBox(
+        width: 70,
+        height: 12,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: colors.background.tertiary,
+            borderRadius: BorderRadius.circular(AppRadius.full),
+          ),
+        ),
+      );
+    }
+
+    final Color dotColor = switch (availability.status) {
+      AvailabilityStatus.available => colors.success,
+      AvailabilityStatus.checkedOut => colors.warning,
+      AvailabilityStatus.noItems => colors.text.tertiary,
+    };
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        Flexible(
+          child: Text(
+            availability.label,
+            style: AppTypography.caption.toTextStyle(color: colors.text.secondary),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -809,8 +1162,9 @@ class _InfoChip extends StatelessWidget {
 class _BookDetailSheet extends StatefulWidget {
   final Biblio book;
   final SemanticColors colors;
+  final BiblioSource biblioService;
 
-  const _BookDetailSheet({required this.book, required this.colors});
+  const _BookDetailSheet({required this.book, required this.colors, required this.biblioService});
 
   @override
   State<_BookDetailSheet> createState() => _BookDetailSheetState();
@@ -821,6 +1175,15 @@ class _BookDetailSheetState extends State<_BookDetailSheet> {
   bool _isPlacingHold = false;
   bool _holdPlaced = false;
   String? _holdError;
+  Availability? _availability;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.biblioService.fetchAvailability(widget.book.biblioId).then((a) {
+      if (mounted) setState(() => _availability = a);
+    });
+  }
 
   Color _bookAccent() {
     final hue = (widget.book.title.hashCode % 360).abs().toDouble();
@@ -841,8 +1204,6 @@ class _BookDetailSheetState extends State<_BookDetailSheet> {
         _holdPlaced = true;
         _isPlacingHold = false;
       });
-    } on KohaSessionExpiredException {
-      if (mounted) await AuthScope.of(context).onLogout();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -903,14 +1264,6 @@ class _BookDetailSheetState extends State<_BookDetailSheet> {
                         width: 90,
                         height: 120,
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              accent,
-                              accent.withValues(alpha: 0.65),
-                            ],
-                          ),
                           borderRadius: BorderRadius.circular(AppRadius.md),
                           boxShadow: [
                             BoxShadow(
@@ -920,12 +1273,8 @@ class _BookDetailSheetState extends State<_BookDetailSheet> {
                             ),
                           ],
                         ),
-                        alignment: Alignment.center,
-                        child: Icon(
-                          LucideIcons.book_open,
-                          size: 36,
-                          color: Colors.white.withValues(alpha: 0.9),
-                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: _BookCoverImage(book: book, accent: accent, iconSize: 36),
                       ),
                     ),
 
@@ -976,6 +1325,16 @@ class _BookDetailSheetState extends State<_BookDetailSheet> {
                       spacing: AppSpacing.sm,
                       runSpacing: AppSpacing.sm,
                       children: [
+                        if (_availability != null)
+                          _DetailChip(
+                            icon: switch (_availability!.status) {
+                              AvailabilityStatus.available => LucideIcons.circle_check,
+                              AvailabilityStatus.checkedOut => LucideIcons.clock,
+                              AvailabilityStatus.noItems => LucideIcons.circle_x,
+                            },
+                            label: _availability!.label,
+                            colors: colors,
+                          ),
                         _DetailChip(
                           icon: LucideIcons.tag,
                           label: book.itemTypeLabel,
@@ -1164,11 +1523,34 @@ class _BookDetailSheetState extends State<_BookDetailSheet> {
                       ),
                       const SizedBox(height: AppSpacing.sm),
                     ],
-                    AppButton(
-                      label: _holdPlaced ? 'Hold Placed' : 'Place Hold',
-                      icon: _holdPlaced ? LucideIcons.circle_check : LucideIcons.bookmark,
-                      isLoading: _isPlacingHold,
-                      onPressed: _holdPlaced ? null : _placeHold,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: AppButton(
+                            label: _holdPlaced ? 'Hold Placed' : 'Place Hold',
+                            icon: _holdPlaced ? LucideIcons.circle_check : LucideIcons.bookmark,
+                            isLoading: _isPlacingHold,
+                            onPressed: _holdPlaced ? null : _placeHold,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        ListenableBuilder(
+                          listenable: BookBagService.instance,
+                          builder: (context, _) {
+                            final inBag = BookBagService.instance.contains(book.biblioId);
+                            return SizedBox(
+                              width: 52,
+                              child: AppButton(
+                                label: '',
+                                icon: inBag ? LucideIcons.shopping_bag : LucideIcons.plus,
+                                variant: 'secondary',
+                                fullWidth: false,
+                                onPressed: () => BookBagService.instance.toggle(book.biblioId),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),

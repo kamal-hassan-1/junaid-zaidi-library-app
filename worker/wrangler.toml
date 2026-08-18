@@ -1,0 +1,27 @@
+name = "jzl-koha-proxy"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# Non-secret configuration. Real secrets (Koha staff password, GCP
+# service-account key) are NOT here — see README.md, they go in via
+# `wrangler secret put`, which Cloudflare stores encrypted and never
+# shows back in `wrangler.toml`, `wrangler deploy` output, or the
+# dashboard once set.
+[vars]
+# Confirmed from this repo's committed (now-historical) google-services.json
+# — double check this still matches your real Firebase project before
+# deploying, project IDs don't change but it's worth a glance.
+FIREBASE_PROJECT_ID = "comsats-library-app"
+
+# The REAL Koha base URL (not localhost/emulator addresses — this Worker
+# runs on Cloudflare's edge, not your dev machine, so 127.0.0.1/10.0.2.2
+# mean nothing here). Must be reachable from the public internet.
+KOHA_BASE_URL = "https://REPLACE_WITH_YOUR_REAL_KOHA_URL"
+
+# Koha account used for the "who are you" validation step
+# (/api/v1/auth/password/validation) — same role as
+# KohaServiceAccount.validatorUserid in the Flutter app today, just the
+# USERID isn't secret (only the password is, set via `wrangler secret
+# put KOHA_STAFF_USERID` if you'd rather keep the userid out of this
+# file too).
+KOHA_STAFF_USERID = "apiuser"
