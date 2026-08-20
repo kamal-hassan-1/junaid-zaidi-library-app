@@ -2,6 +2,66 @@
 
 Items intentionally left unresolved for now — revisit when asked.
 
+## Colleague's laptop — known environment/setup (reference)
+
+Reconstructed from diffing their pushed commit (`7af8391`,
+`opac-search-filters-and-borrowing`) against what was on this machine at
+the time. Not guessed — every value below is exactly what their commit
+had. Worth checking against reality if you're ever debugging "works on my
+machine, not theirs":
+
+- **Runs on an Android emulator**, not a physical device or Flutter web/
+  desktop — `ApiConstants.kohaBaseUrl` was `http://10.0.2.2:9090`, the
+  special host-machine alias emulators use (`127.0.0.1` inside an
+  emulator points at the emulator itself, not the host).
+- **`useMockKohaBackend = false`** — pointed at a real local Koha, not
+  the mock catalog. Since they never touched `koha_service_account.dart`,
+  the same `apiuser`/`Api@1234` credential this app shipped with was
+  apparently working against their instance too (now rotated — see the
+  security-audit section below; they'll need the new value or their own
+  local account to keep working).
+- **Their Koha instance uses Koha's own stock demo/seed data**, not a
+  real COMSATS-specific catalog — `defaultPickupLibraryId = 'CPL'`
+  ("Centerville") is one of `koha-testing-docker`'s default demo
+  libraries, the same ones seen on the throwaway dev instance used for
+  live-testing this session, not a real COMSATS branch code. Likely
+  means they're running the same `koha-testing-docker` setup locally,
+  independently from this machine's.
+- **`flutter_native_splash` pinned to `^2.4.7`**, one patch behind what
+  this machine had (`^2.4.8`) — never confirmed why (a resolver conflict
+  on their Flutter/Dart SDK version is the likely reason), but their
+  version was kept on merge rather than overwritten, on the theory it
+  reflects a real constraint on their machine rather than an arbitrary
+  choice.
+- **Different code formatter/IDE settings** — their diffs included
+  widespread indentation-only changes unrelated to any functional edit
+  (visible throughout their `opac.dart`/`biblio_service.dart` diffs),
+  consistent with a different default Dart formatter (Android
+  Studio/IntelliJ's built-in one uses different continuation-indent
+  defaults than `dart format`'s CLI defaults). Not a bug, just something
+  to expect if diffing against their commits again — most of the noise
+  in any future diff will likely be this, not real changes.
+
+## Silent Watch (availability alerts, no hold) — 2026-08-18
+
+New `lib/services/watchlist_service.dart` — local-only (`SharedPreferences`,
+same `ChangeNotifier` singleton shape as `BookBagService`), separate from a
+real Koha hold entirely. Bell toggle on the book detail sheet, shown only
+while `Availability.status == checkedOut` (watching an already-available
+or no-items title is meaningless). Checked opportunistically in
+`MyBooksScreen._load()` via `WatchlistService.checkForAvailabilityChanges()`
+— same rebuild-on-screen-load pattern as due-date reminders, not true
+background polling (no backend to run one on). Fires a local notification
+via a new `NotificationService.notifyBookAvailable()` on a false→true
+transition only, using a negative id-space (`-biblioId`) so it can never
+collide with due-date reminders' `checkoutId`-keyed notifications. Entries
+aren't auto-removed after notifying — they flip to an "Available now!"
+badge in the new Watching section of My Books and stay until the student
+removes them, so nothing disappears silently.
+
+No new Koha API surface — reuses `fetchAvailability()`, already confirmed
+real and public (no auth) earlier this session.
+
 ## Architectural fix for security finding #2 (2026-08-18) — built, NOT deployed or tested
 
 Built a Cloudflare Worker (`/worker`, see `worker/README.md`) that brokers

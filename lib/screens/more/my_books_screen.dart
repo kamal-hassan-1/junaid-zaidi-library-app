@@ -3,12 +3,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 
+import '../../config/api_constants.dart';
 import '../../models/checkout.dart';
 import '../../models/hold.dart';
 import '../../models/patron_account.dart';
 import '../../navigation/auth_scope.dart';
+import '../../services/biblio_service.dart';
 import '../../services/circulation_service.dart';
+import '../../services/mock_biblio_service.dart';
 import '../../services/notification_service.dart';
+import '../../services/watchlist_service.dart';
 import '../../theme/theme.dart';
 import '../../widgets/ui.dart';
 
@@ -25,6 +29,8 @@ class MyBooksScreen extends StatefulWidget {
 
 class _MyBooksScreenState extends State<MyBooksScreen> {
   final _circulation = CirculationService();
+  final BiblioSource _biblioService =
+      ApiConstants.useMockKohaBackend ? MockBiblioService() : BiblioService();
 
   bool _isLoading = true;
   String? _errorMessage;
@@ -65,6 +71,7 @@ class _MyBooksScreenState extends State<MyBooksScreen> {
       });
       unawaited(NotificationService.instance.scheduleDueDateReminders(_checkouts));
       unawaited(_loadAccountSummary());
+      unawaited(WatchlistService.instance.checkForAvailabilityChanges(_biblioService));
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -235,6 +242,30 @@ class _MyBooksScreenState extends State<MyBooksScreen> {
                   onCancel: () => _cancelHold(_holds[i]),
                 ),
             ]),
+          const SizedBox(height: AppSpacing.xl),
+          Heading(level: 5, text: 'Watching'),
+          const SizedBox(height: AppSpacing.ms),
+          ListenableBuilder(
+            listenable: WatchlistService.instance,
+            builder: (context, _) {
+              final watched = WatchlistService.instance.entries;
+              if (watched.isEmpty) {
+                return _emptyRow(
+                  colors,
+                  "You're not watching any checked-out books. Tap the bell on a book's details to get notified when it's returned.",
+                );
+              }
+              return _groupedList(colors, [
+                for (var i = 0; i < watched.length; i++)
+                  _WatchRow(
+                    entry: watched[i],
+                    colors: colors,
+                    showDivider: i != watched.length - 1,
+                    onRemove: () => WatchlistService.instance.unwatch(watched[i].biblioId),
+                  ),
+              ]);
+            },
+          ),
         ],
       ),
     );
@@ -467,6 +498,58 @@ class _HoldRow extends StatelessWidget {
               isLoading: isBusy,
               onPressed: onCancel,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WatchRow extends StatelessWidget {
+  final WatchEntry entry;
+  final SemanticColors colors;
+  final bool showDivider;
+  final VoidCallback onRemove;
+
+  const _WatchRow({
+    required this.entry,
+    required this.colors,
+    required this.showDivider,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.ms, horizontal: AppSpacing.md),
+      decoration: BoxDecoration(
+        border: showDivider ? Border(bottom: BorderSide(color: colors.border)) : null,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AppText(entry.title, variant: 'bodyBase', tone: 'primary'),
+                if (entry.author != null) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  AppText(entry.author!, variant: 'bodySmall', tone: 'secondary'),
+                ],
+                const SizedBox(height: AppSpacing.xs),
+                AppBadge(
+                  label: entry.wasAvailable ? 'Available now!' : 'Watching — checked out',
+                  intent: entry.wasAvailable ? 'success' : 'neutral',
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.ms),
+          GestureDetector(
+            onTap: onRemove,
+            behavior: HitTestBehavior.opaque,
+            child: Icon(LucideIcons.x, size: 18, color: colors.icon),
           ),
         ],
       ),

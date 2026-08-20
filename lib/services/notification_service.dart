@@ -131,4 +131,39 @@ class NotificationService {
       }
     }
   }
+
+  static const String _watchChannelId = 'watchlist_availability';
+  static const String _watchChannelName = 'Book Availability';
+
+  /// Fires immediately — used by [WatchlistService] when a watched title
+  /// flips from checked-out to available. [id] should be the book's
+  /// `biblioId`, kept in a separate id-space from due-date reminders
+  /// (those use `checkoutId`) so the two features can never collide on
+  /// the same notification id.
+  Future<void> notifyBookAvailable({required int biblioId, required String title}) async {
+    if (kIsWeb) return;
+    await init();
+    await _requestPermission();
+
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        _watchChannelId,
+        _watchChannelName,
+        channelDescription: 'Tells you when a watched book you were waiting on is returned.',
+      ),
+      iOS: DarwinNotificationDetails(),
+    );
+
+    try {
+      await _plugin.show(
+        id: -biblioId, // negative id-space keeps this out of the due-date reminders' range
+        title: '$title is available now',
+        body: 'Place a hold before someone else gets to it.',
+        notificationDetails: details,
+      );
+    } catch (_) {
+      // Same reasoning as scheduleDueDateReminders — the in-app Watching
+      // list in My Books is the fallback, so a failure here is silent.
+    }
+  }
 }

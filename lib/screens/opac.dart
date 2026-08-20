@@ -11,6 +11,7 @@ import '../services/book_bag_service.dart';
 import '../services/circulation_service.dart';
 import '../services/mock_biblio_service.dart';
 import '../services/search_history_service.dart';
+import '../services/watchlist_service.dart';
 import '../theme/theme.dart';
 import '../widgets/ui.dart';
 import 'advanced_search_screen.dart';
@@ -108,6 +109,7 @@ class _OpacScreenState extends State<OpacScreen> with TickerProviderStateMixin {
     _loadBooks();
     BookBagService.instance.ensureLoaded();
     SearchHistoryService.instance.ensureLoaded();
+    WatchlistService.instance.ensureLoaded();
   }
 
   @override
@@ -1550,6 +1552,35 @@ class _BookDetailSheetState extends State<_BookDetailSheet> {
                             );
                           },
                         ),
+                        // Watching only makes sense while the book is
+                        // actually checked out — nothing to wait for
+                        // otherwise (available now, or no items exist at
+                        // all in the catalog record).
+                        if (_availability?.status == AvailabilityStatus.checkedOut) ...[
+                          const SizedBox(width: AppSpacing.sm),
+                          ListenableBuilder(
+                            listenable: WatchlistService.instance,
+                            builder: (context, _) {
+                              final watching = WatchlistService.instance.isWatching(book.biblioId);
+                              return SizedBox(
+                                width: 52,
+                                child: AppButton(
+                                  label: '',
+                                  icon: watching ? LucideIcons.bell_ring : LucideIcons.bell,
+                                  variant: 'secondary',
+                                  fullWidth: false,
+                                  onPressed: () => watching
+                                      ? WatchlistService.instance.unwatch(book.biblioId)
+                                      : WatchlistService.instance.watch(
+                                          biblioId: book.biblioId,
+                                          title: book.title,
+                                          author: book.author,
+                                        ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       ],
                     ),
                   ],
